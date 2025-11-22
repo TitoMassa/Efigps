@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Estilos principales de la aplicación -->
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/login_style.css">
 </head>
 <body>
 
@@ -38,7 +39,7 @@
                             <span id="speed" class="align-right">0 km/h</span>
                         </div>
                         <div class="line">
-                            <span>CH Tipo HABIL</span>
+                            <span id="schedule-type-display">H Tipo: ----</span>
                             <span class="align-right">VH 1</span>
                         </div>
                     </div>
@@ -70,7 +71,8 @@
              <div class="bottom-bar">
                 <button class="func-btn" id="btn-contrast" title="Alto Contraste">U+</button>
                 <button class="func-btn" id="btn-map-toggle" title="Mapa">m</button>
-                <button class="func-btn" title="Chofer" id="btn-route-editor"><i class="fa-solid fa-user"></i></button> <!-- Usado para el Editor de Rutas -->
+                <button class="func-btn" title="Editor de Rutas" id="btn-route-editor"><i class="fa-solid fa-route"></i></button> <!-- Icono cambiado para diferenciación -->
+                <button class="func-btn" title="Login Chofer" id="btn-driver-login"><i class="fa-solid fa-id-card"></i></button>
                 <button class="func-btn yellow" id="btn-down"><i class="fa-solid fa-arrow-down"></i></button>
                 <button class="func-btn yellow" id="btn-up"><i class="fa-solid fa-arrow-up"></i></button>
              </div>
@@ -99,6 +101,28 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Modal de Login de Chofer -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content small-modal">
+            <span class="close-modal" id="close-login-modal">&times;</span>
+            <h2>Ingreso de Chofer</h2>
+            <div class="form-column center-content">
+                <div class="form-group">
+                    <label>Número de Legajo (5 dígitos):</label>
+                    <input type="number" id="driver-id-input" placeholder="Ej: 12345" min="10000" max="99999">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Horario:</label>
+                    <input type="text" id="schedule-type-input" placeholder="Ej: HABIL">
+                </div>
+                <div class="editor-actions">
+                    <button id="btn-confirm-login" class="btn-primary">Ingresar</button>
+                    <button id="btn-logout" class="btn-danger hidden">Desloguear</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal del Editor de Rutas -->
@@ -139,6 +163,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map_logic.js"></script>
     <script src="js/route_logic.js"></script>
+    <script src="js/login_logic.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

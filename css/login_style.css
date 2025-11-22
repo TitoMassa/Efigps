@@ -1,0 +1,39 @@
+/* Estilos para el modal pequeño de login */
+.small-modal {
+    max-width: 400px;
+    height: auto;
+    min-height: 300px;
+    padding-bottom: 30px;
+}
+
+.center-content {
+    justify-content: center;
+    align-items: center;
+    text-align: left;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: #fff;
+}
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: #fff;
+}
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.active-login {
+    border: 1px solid var(--highlight-green);
+    color: var(--highlight-green);
+}
+
+#schedule-type-display {
+    font-weight: bold;
+    color: var(--highlight-yellow);
+}

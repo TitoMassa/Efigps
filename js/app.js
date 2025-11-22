@@ -176,6 +176,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Vinculación Teclas Físicas (Arriba/Abajo)
         els.btnUp.addEventListener('click', () => handleArrowKey('up'));
         els.btnDown.addEventListener('click', () => handleArrowKey('down'));
+
+        // Inicializar Lógica de Login
+        if (typeof LoginLogic !== 'undefined') {
+            LoginLogic.init();
+        }
     }
 
     /**

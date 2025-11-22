@@ -4,21 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Efigps - Control de Flota</title>
+    <!-- Librería Leaflet para mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Iconos Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Estilos principales de la aplicación -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
     <div id="app-container">
 
-        <!-- Device Shell (Abstracted) -->
+        <!-- Carcasa del Dispositivo (Contenedor Principal) -->
         <div class="device-interface">
 
-            <!-- Screen Section -->
+            <!-- Sección de Pantalla -->
             <div class="screen-frame">
                 <div id="digital-screen" class="screen-content">
-                    <!-- Top Status Bar -->
+                    <!-- Barra de Estado Superior -->
                     <div class="status-bar">
                         <div id="clock">--:--:--</div>
                         <div class="status-icons">
@@ -28,7 +31,7 @@
                         </div>
                     </div>
 
-                    <!-- Info Lines -->
+                    <!-- Líneas de Información (Nombre Ruta, Velocidad, etc.) -->
                     <div class="info-lines">
                         <div class="line">
                             <span id="route-name">SIN BANDERA</span>
@@ -40,17 +43,17 @@
                         </div>
                     </div>
 
-                    <!-- Main Display (Deviation) -->
+                    <!-- Pantalla Principal (Visualización de Desviación) -->
                     <div class="main-display">
                         <div id="deviation-display" class="neutral">00:00</div>
                     </div>
 
-                    <!-- Navigation Map Overlay (Hidden by default) -->
+                    <!-- Capa de Mapa de Navegación (Oculto por defecto) -->
                     <div id="nav-map-container" class="hidden">
                         <div id="nav-map"></div>
                     </div>
 
-                    <!-- Footer Info -->
+                    <!-- Información Inferior (Próxima parada y hora de llegada) -->
                     <div class="footer-info">
                         <div class="next-stop">
                             <span class="label">Próxima:</span>
@@ -63,18 +66,18 @@
                 </div>
             </div>
 
-            <!-- Bottom Function Bar -->
+            <!-- Barra de Funciones Inferior (Botones Físicos del Dispositivo) -->
              <div class="bottom-bar">
                 <button class="func-btn" id="btn-contrast" title="Alto Contraste">U+</button>
                 <button class="func-btn" id="btn-map-toggle" title="Mapa">m</button>
-                <button class="func-btn" title="Chofer" id="btn-route-editor"><i class="fa-solid fa-user"></i></button> <!-- Use this for Route Editor -->
+                <button class="func-btn" title="Chofer" id="btn-route-editor"><i class="fa-solid fa-user"></i></button> <!-- Usado para el Editor de Rutas -->
                 <button class="func-btn yellow" id="btn-down"><i class="fa-solid fa-arrow-down"></i></button>
                 <button class="func-btn yellow" id="btn-up"><i class="fa-solid fa-arrow-up"></i></button>
              </div>
 
         </div>
 
-        <!-- Simulation Controls (Outside device) -->
+        <!-- Controles de Simulación (Externos al dispositivo simulado) -->
         <div class="sim-controls">
             <h3>Modo Simulación</h3>
             <label>Progreso de Bandera:</label>
@@ -84,7 +87,7 @@
             </div>
             <button id="btn-start-sim">Iniciar Simulación</button>
 
-            <!-- Manual Mode Switch (Moved here) -->
+            <!-- Interruptor de Modo Manual (Movido aquí) -->
             <div class="manual-control-container">
                  <div class="switch-container">
                     <label class="switch">
@@ -98,7 +101,7 @@
 
     </div>
 
-    <!-- Route Editor Modal -->
+    <!-- Modal del Editor de Rutas -->
     <div id="editor-modal" class="modal hidden">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
@@ -116,7 +119,7 @@
                     </div>
 
                     <div id="stops-list">
-                        <!-- Stops generated here -->
+                        <!-- Las paradas se generan aquí dinámicamente -->
                     </div>
 
                     <div class="editor-actions">
@@ -132,6 +135,7 @@
         </div>
     </div>
 
+    <!-- Scripts de la aplicación -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map_logic.js"></script>
     <script src="js/route_logic.js"></script>

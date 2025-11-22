@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Editor
         modal: document.getElementById('editor-modal'),
-        closeModal: document.querySelector('.close-modal'),
+        closeModal: document.getElementById('close-editor-modal'),
         stopsList: document.getElementById('stops-list'),
         btnCalc: document.getElementById('btn-calc-times'),
         btnSave: document.getElementById('btn-save-route'),
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
-            state.drawingMode = false; // Asegurar salir modo dibujo
+            stopDrawing(); // Asegurar salir modo dibujo y limpiar estado UI
             MapLogic.renderEditorRoute(tempStops); // Redibujar limpio
         });
         els.btnCalc.addEventListener('click', calculateEditorTimes);

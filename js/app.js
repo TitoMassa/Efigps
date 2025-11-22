@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnMap: document.getElementById('btn-map-toggle'),
         btnContrast: document.getElementById('btn-contrast'),
         btnRouteEditor: document.getElementById('btn-route-editor'),
+        btnProMode: document.getElementById('btn-pro-mode'),
         btnSimStart: document.getElementById('btn-start-sim'),
         btnUp: document.getElementById('btn-up'),
         btnDown: document.getElementById('btn-down'),
@@ -76,6 +77,32 @@ document.addEventListener('DOMContentLoaded', () => {
         btnClear: document.getElementById('btn-clear-route'),
         routeNameInput: document.getElementById('route-name-input'),
         savedList: document.getElementById('saved-routes-list'),
+
+        // PRO Mode Elements
+        proModal: document.getElementById('pro-modal'),
+        closeProModal: document.getElementById('close-pro-modal'),
+        proLinesView: document.getElementById('pro-lines-view'),
+        proLineEditor: document.getElementById('pro-line-editor'),
+        proDriverView: document.getElementById('pro-driver-view'),
+        linesList: document.getElementById('lines-list'),
+        btnCreateLine: document.getElementById('btn-create-line'),
+
+        // Line Editor Inputs
+        lineNameInput: document.getElementById('line-name-input'),
+        selectRouteIda: document.getElementById('select-route-ida'),
+        selectRouteVuelta: document.getElementById('select-route-vuelta'),
+        lineStartTime: document.getElementById('line-start-time'),
+        lineEndTime: document.getElementById('line-end-time'),
+        lineTurns: document.getElementById('line-turns'),
+        lineRest: document.getElementById('line-rest'),
+        btnSaveLine: document.getElementById('btn-save-line'),
+        btnCancelLine: document.getElementById('btn-cancel-line'),
+        btnDeleteLine: document.getElementById('btn-delete-line'),
+
+        // Driver View
+        driverLineTitle: document.getElementById('driver-line-title'),
+        tripsList: document.getElementById('trips-list'),
+        btnBackLines: document.getElementById('btn-back-lines'),
 
         // Simulación
         simSlider: document.getElementById('sim-slider'),
@@ -148,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnContrast.addEventListener('click', toggleHighContrast);
         els.btnMap.addEventListener('click', toggleNavMap);
         els.btnRouteEditor.addEventListener('click', openEditor);
+        if (els.btnProMode) els.btnProMode.addEventListener('click', openProMode);
 
         // Cambio de Modo
         if (els.modeSwitch) {
@@ -156,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
              });
         }
 
-        // Editor
+        // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
             state.drawingMode = false; // Asegurar salir modo dibujo
@@ -165,6 +193,20 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnCalc.addEventListener('click', calculateEditorTimes);
         els.btnSave.addEventListener('click', saveRoute);
         els.btnClear.addEventListener('click', clearEditor);
+
+        // PRO Mode Events
+        els.closeProModal.addEventListener('click', () => els.proModal.classList.add('hidden'));
+        els.btnCreateLine.addEventListener('click', () => openLineEditor(null));
+        els.btnSaveLine.addEventListener('click', saveLine);
+        els.btnCancelLine.addEventListener('click', () => {
+            els.proLineEditor.classList.add('hidden');
+            els.proLinesView.classList.remove('hidden');
+        });
+        els.btnDeleteLine.addEventListener('click', deleteLine);
+        els.btnBackLines.addEventListener('click', () => {
+            els.proDriverView.classList.add('hidden');
+            els.proLinesView.classList.remove('hidden');
+        });
 
         // Simulación
         els.btnSimStart.addEventListener('click', toggleSimulation);
@@ -550,6 +592,196 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSimulationLoop() {
         // Disparar actualización manualmente
         updateClock();
+    }
+
+    // --- Lógica del Modo PRO ---
+
+    let editingLineId = null;
+
+    /** Abre el modal de Modo Profesional y carga las líneas */
+    function openProMode() {
+        els.proModal.classList.remove('hidden');
+        els.proLineEditor.classList.add('hidden');
+        els.proDriverView.classList.add('hidden');
+        els.proLinesView.classList.remove('hidden');
+        loadLinesList();
+    }
+
+    /** Carga y renderiza la lista de líneas */
+    function loadLinesList() {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        els.linesList.innerHTML = '';
+
+        if (lines.length === 0) {
+            els.linesList.innerHTML = '<li style="text-align:center; padding:10px; color:#777">No hay líneas creadas</li>';
+            return;
+        }
+
+        lines.forEach(line => {
+            const li = document.createElement('li');
+            li.className = 'item-card';
+            li.innerHTML = `
+                <div>
+                    <h4>${line.name}</h4>
+                    <p>${line.start} - ${line.end} | ${line.turns} Vueltas</p>
+                </div>
+                <div>
+                    <button class="btn-small" onclick="window.driveLine(${line.id})">Conducir</button>
+                    <button class="btn-small" onclick="window.editLine(${line.id})">Editar</button>
+                </div>
+            `;
+            els.linesList.appendChild(li);
+        });
+    }
+
+    window.driveLine = function(id) {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const line = lines.find(l => l.id === id);
+        if (!line) return;
+
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const rIda = savedRoutes.find(r => r.id == line.routeIda);
+        const rVuelta = savedRoutes.find(r => r.id == line.routeVuelta);
+
+        if (!rIda || !rVuelta) {
+            alert("Error: Faltan las rutas de Ida o Vuelta asociadas.");
+            return;
+        }
+
+        // Calcular Itinerario
+        const trips = ScheduleLogic.calculateItinerary({
+            startTime: line.start,
+            endTime: line.end,
+            turns: line.turns,
+            restMinutes: line.rest
+        }, rIda, rVuelta);
+
+        if (!trips || trips.length === 0) {
+            alert("No se pudo generar el cronograma. Verifique los horarios.");
+            return;
+        }
+
+        // Mostrar Driver View
+        els.proLinesView.classList.add('hidden');
+        els.proDriverView.classList.remove('hidden');
+        els.driverLineTitle.textContent = `Conducir: ${line.name}`;
+        els.tripsList.innerHTML = '';
+
+        trips.forEach(trip => {
+            const div = document.createElement('div');
+            div.className = 'trip-card';
+            div.innerHTML = `
+                <div class="trip-dir">${trip.direction}</div>
+                <div class="trip-time">${trip.startTime} - ${trip.endTime}</div>
+                <div class="trip-leg">Tramo ${trip.legIndex}</div>
+            `;
+            div.onclick = () => {
+                startTrip(trip, line.name);
+            };
+            els.tripsList.appendChild(div);
+        });
+    };
+
+    function startTrip(trip, lineName) {
+        const routeObj = {
+            id: trip.id,
+            name: `${lineName} (${trip.direction})`,
+            stops: trip.stops
+        };
+        selectRoute(routeObj);
+        els.proModal.classList.add('hidden');
+    }
+
+    window.editLine = function(id) {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const line = lines.find(l => l.id === id);
+        openLineEditor(line);
+    };
+
+    function openLineEditor(line) {
+        els.proLinesView.classList.add('hidden');
+        els.proLineEditor.classList.remove('hidden');
+
+        // Cargar opciones de rutas
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const populate = (sel, selectedId) => {
+            sel.innerHTML = '<option value="">Seleccionar...</option>';
+            savedRoutes.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = r.name;
+                if (selectedId && r.id == selectedId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        };
+
+        if (line) {
+            editingLineId = line.id;
+            els.lineNameInput.value = line.name;
+            populate(els.selectRouteIda, line.routeIda);
+            populate(els.selectRouteVuelta, line.routeVuelta);
+            els.lineStartTime.value = line.start;
+            els.lineEndTime.value = line.end;
+            els.lineTurns.value = line.turns;
+            els.lineRest.value = line.rest;
+            els.btnDeleteLine.classList.remove('hidden');
+        } else {
+            editingLineId = null;
+            els.lineNameInput.value = '';
+            populate(els.selectRouteIda, null);
+            populate(els.selectRouteVuelta, null);
+            els.lineStartTime.value = '';
+            els.lineEndTime.value = '';
+            els.lineTurns.value = '';
+            els.lineRest.value = 0;
+            els.btnDeleteLine.classList.add('hidden');
+        }
+    }
+
+    function saveLine() {
+        const name = els.lineNameInput.value;
+        const ida = els.selectRouteIda.value;
+        const vuelta = els.selectRouteVuelta.value;
+        const start = els.lineStartTime.value;
+        const end = els.lineEndTime.value;
+        const turns = els.lineTurns.value;
+        const rest = els.lineRest.value;
+
+        if (!name || !ida || !vuelta || !start || !end || !turns) {
+            alert("Complete todos los campos obligatorios");
+            return;
+        }
+
+        const line = {
+            id: editingLineId || Date.now(),
+            name,
+            routeIda: ida,
+            routeVuelta: vuelta,
+            start,
+            end,
+            turns: parseFloat(turns),
+            rest: parseInt(rest) || 0
+        };
+
+        let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        if (editingLineId) {
+            const idx = lines.findIndex(l => l.id === editingLineId);
+            if (idx !== -1) lines[idx] = line;
+        } else {
+            lines.push(line);
+        }
+
+        localStorage.setItem('gps_lines', JSON.stringify(lines));
+        openProMode(); // Volver a lista
+    }
+
+    function deleteLine() {
+        if (!editingLineId) return;
+        if (!confirm("¿Eliminar esta línea?")) return;
+        let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        lines = lines.filter(l => l.id !== editingLineId);
+        localStorage.setItem('gps_lines', JSON.stringify(lines));
+        openProMode();
     }
 
     // --- Lógica del Editor ---

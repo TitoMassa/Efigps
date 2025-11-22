@@ -71,6 +71,7 @@
                 <button class="func-btn" id="btn-contrast" title="Alto Contraste">U+</button>
                 <button class="func-btn" id="btn-map-toggle" title="Mapa">m</button>
                 <button class="func-btn" title="Chofer" id="btn-route-editor"><i class="fa-solid fa-user"></i></button> <!-- Usado para el Editor de Rutas -->
+                <button class="func-btn" title="Modo Profesional" id="btn-pro-mode">PRO</button>
                 <button class="func-btn yellow" id="btn-down"><i class="fa-solid fa-arrow-down"></i></button>
                 <button class="func-btn yellow" id="btn-up"><i class="fa-solid fa-arrow-up"></i></button>
              </div>
@@ -99,6 +100,69 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Modal del Modo Profesional -->
+    <div id="pro-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" id="close-pro-modal">&times;</span>
+            <h2>Gestión de Líneas y Servicios</h2>
+
+            <!-- Vista Lista de Líneas -->
+            <div id="pro-lines-view">
+                <button id="btn-create-line" class="btn-primary">Crear Nueva Línea</button>
+                <ul id="lines-list" class="item-list"></ul>
+            </div>
+
+            <!-- Vista Editor de Línea -->
+            <div id="pro-line-editor" class="hidden">
+                <div class="form-group">
+                    <label>Nombre de la Línea:</label>
+                    <input type="text" id="line-name-input" placeholder="Ej: Línea 106">
+                </div>
+                <div class="form-group">
+                    <label>Bandera de IDA:</label>
+                    <select id="select-route-ida"></select>
+                </div>
+                <div class="form-group">
+                    <label>Bandera de VUELTA:</label>
+                    <select id="select-route-vuelta"></select>
+                </div>
+
+                <h3>Diagrama de Servicio</h3>
+                <div class="diagram-grid">
+                    <div class="form-group">
+                        <label>Inicio Servicio:</label>
+                        <input type="time" id="line-start-time">
+                    </div>
+                    <div class="form-group">
+                        <label>Fin Servicio:</label>
+                        <input type="time" id="line-end-time">
+                    </div>
+                    <div class="form-group">
+                        <label>Vueltas:</label>
+                        <input type="number" id="line-turns" step="0.5" min="0.5" placeholder="Ej: 4.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Espera en Puntas (min):</label>
+                        <input type="number" id="line-rest" min="0" placeholder="Ej: 10">
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="btn-save-line">Guardar Línea</button>
+                    <button id="btn-cancel-line" class="btn-secondary">Cancelar</button>
+                    <button id="btn-delete-line" class="btn-danger hidden">Eliminar</button>
+                </div>
+            </div>
+
+            <!-- Vista Selección de Viaje (Driver) -->
+            <div id="pro-driver-view" class="hidden">
+                <button id="btn-back-lines" class="btn-small">Volver a Líneas</button>
+                <h3 id="driver-line-title">Seleccionar Viaje</h3>
+                <div id="trips-list" class="trips-grid"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal del Editor de Rutas -->
@@ -139,6 +203,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map_logic.js"></script>
     <script src="js/route_logic.js"></script>
+    <script src="js/schedule_logic.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

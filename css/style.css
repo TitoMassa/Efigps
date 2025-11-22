@@ -526,6 +526,79 @@ input:checked + .slider:before { transform: translateX(24px); }
 #btn-save-route:hover { background: #218838; box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3); }
 #btn-clear-route:hover { background: #c82333; box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3); }
 
+
+/* ==========================================================================
+   Modo Profesional
+   ========================================================================== */
+.item-list {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.item-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.item-card h4 { margin: 0 0 5px 0; color: #333; }
+.item-card p { margin: 0; font-size: 12px; color: #777; }
+
+.diagram-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.trips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.trip-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+.trip-card:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
+    transform: translateY(-2px);
+}
+.trip-card .trip-dir { font-weight: bold; color: #007bff; margin-bottom: 4px; }
+.trip-card .trip-time { font-size: 14px; color: #333; }
+.trip-card .trip-leg { font-size: 11px; color: #999; margin-top: 4px; }
+
+.btn-primary { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+.btn-secondary { background: #6c757d; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; }
+.btn-danger { background: #dc3545; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; }
+.btn-small { padding: 5px 10px; font-size: 12px; border-radius: 4px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+
+.actions { display: flex; gap: 10px; margin-top: 20px; }
+.actions button { flex: 1; }
+
+
 /* Rutas Guardadas */
 #saved-routes-list {
     list-style: none;

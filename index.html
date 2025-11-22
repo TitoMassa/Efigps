@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Efigps - Control de Flota</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="app-container">
+
+        <!-- Device Shell (Abstracted) -->
+        <div class="device-interface">
+
+            <!-- Screen Section -->
+            <div class="screen-frame">
+                <div id="digital-screen" class="screen-content">
+                    <!-- Top Status Bar -->
+                    <div class="status-bar">
+                        <div id="clock">--:--:--</div>
+                        <div class="status-icons">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                            <i class="fa-solid fa-signal"></i>
+                            <i class="fa-solid fa-battery-three-quarters"></i>
+                        </div>
+                    </div>
+
+                    <!-- Info Lines -->
+                    <div class="info-lines">
+                        <div class="line">
+                            <span id="route-name">SIN BANDERA</span>
+                            <span id="speed" class="align-right">0 km/h</span>
+                        </div>
+                        <div class="line">
+                            <span>CH Tipo HABIL</span>
+                            <span class="align-right">VH 1</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Display (Deviation) -->
+                    <div class="main-display">
+                        <div id="deviation-display" class="neutral">00:00</div>
+                    </div>
+
+                    <!-- Navigation Map Overlay (Hidden by default) -->
+                    <div id="nav-map-container" class="hidden">
+                        <div id="nav-map"></div>
+                    </div>
+
+                    <!-- Footer Info -->
+                    <div class="footer-info">
+                        <div class="next-stop">
+                            <span class="label">Próxima:</span>
+                            <span id="next-stop-name">---</span>
+                        </div>
+                        <div class="arrival-time">
+                            <span id="arrival-time">--:--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Function Bar -->
+             <div class="bottom-bar">
+                <button class="func-btn" id="btn-contrast" title="Alto Contraste">U+</button>
+                <button class="func-btn" id="btn-map-toggle" title="Mapa">m</button>
+                <button class="func-btn" title="Chofer" id="btn-route-editor"><i class="fa-solid fa-user"></i></button> <!-- Use this for Route Editor -->
+                <button class="func-btn yellow" id="btn-down"><i class="fa-solid fa-arrow-down"></i></button>
+                <button class="func-btn yellow" id="btn-up"><i class="fa-solid fa-arrow-up"></i></button>
+             </div>
+
+        </div>
+
+        <!-- Simulation Controls (Outside device) -->
+        <div class="sim-controls">
+            <h3>Modo Simulación</h3>
+            <label>Progreso de Bandera:</label>
+            <input type="range" id="sim-slider" min="0" max="100" value="0" disabled>
+            <div class="sim-info">
+                <span id="sim-status">Inactivo</span>
+            </div>
+            <button id="btn-start-sim">Iniciar Simulación</button>
+
+            <!-- Manual Mode Switch (Moved here) -->
+            <div class="manual-control-container">
+                 <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="mode-switch-input">
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="mode-label">M</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Route Editor Modal -->
+    <div id="editor-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Editor de Banderas</h2>
+
+            <div class="editor-layout">
+                <div class="map-column">
+                    <div id="editor-map"></div>
+                    <p class="hint">Toque el mapa para agregar paradas. Arrastre para mover.</p>
+                </div>
+                <div class="form-column">
+                    <div class="form-group">
+                        <label>Nombre de Bandera:</label>
+                        <input type="text" id="route-name-input" placeholder="Ej: Línea 10 - Centro">
+                    </div>
+
+                    <div id="stops-list">
+                        <!-- Stops generated here -->
+                    </div>
+
+                    <div class="editor-actions">
+                        <button id="btn-calc-times">Calcular Intermedios</button>
+                        <button id="btn-save-route">Guardar Bandera</button>
+                        <button id="btn-clear-route">Limpiar</button>
+                    </div>
+
+                    <h3>Banderas Guardadas</h3>
+                    <ul id="saved-routes-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/map_logic.js"></script>
+    <script src="js/route_logic.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

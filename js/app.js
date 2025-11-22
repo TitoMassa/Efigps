@@ -281,17 +281,53 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Segment: idx-1 -> idx
                     const prevStop = state.currentRoute.stops[idx-1];
 
-                    // Project on segment
-                    const proj = RouteLogic.projectPointOnSegment(
-                        {x: lat, y: lng},
-                        {x: prevStop.lat, y: prevStop.lng},
-                        {x: targetStop.lat, y: targetStop.lng}
-                    );
+                    // Manual Mode must respect Polyline geometry just like Auto Mode.
+                    // We are constrained to the segment between prevStop and targetStop.
+
+                    const points = RouteLogic.getSegmentPoints(prevStop, targetStop);
+
+                    // Calculate lengths of sub-segments and total distance
+                    let totalPathDist = 0;
+                    const subSegmentDists = [];
+                    for(let j=0; j<points.length-1; j++) {
+                        const d = RouteLogic.getDistance(points[j].lat, points[j].lng, points[j+1].lat, points[j+1].lng);
+                        subSegmentDists.push(d);
+                        totalPathDist += d;
+                    }
+
+                    // Find closest projection on this specific path chain
+                    let minLocalDist = Infinity;
+                    let bestRatio = 0;
+
+                    for(let j=0; j<points.length-1; j++) {
+                        const A = points[j];
+                        const B = points[j+1];
+
+                        // Project Point P onto Line Segment AB
+                        const p = RouteLogic.projectPointOnSegment(
+                            {x: lat, y: lng},
+                            {x: A.lat, y: A.lng},
+                            {x: B.lat, y: B.lng}
+                        );
+
+                        const dist = RouteLogic.getDistance(lat, lng, p.x, p.y);
+
+                        if (dist < minLocalDist) {
+                            minLocalDist = dist;
+
+                            // Calculate cumulative ratio
+                            let distBefore = 0;
+                            for(let k=0; k<j; k++) distBefore += subSegmentDists[k];
+                            distBefore += subSegmentDists[j] * p.ratio;
+
+                            bestRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
+                        }
+                    }
 
                     const t1 = RouteLogic.timeToSeconds(prevStop.time);
                     const t2 = RouteLogic.timeToSeconds(targetStop.time);
 
-                    const expectedTimeSec = t1 + (t2 - t1) * proj.ratio;
+                    const expectedTimeSec = t1 + (t2 - t1) * bestRatio;
                     const diff = expectedTimeSec - currentSec; // + ahead, - behind
 
                     result = formatDeviationResult(diff, targetStop.name, expectedTimeSec);

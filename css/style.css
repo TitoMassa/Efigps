@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* ==========================================================================
    Configuración Base (Variables y Globales)
    ========================================================================== */
@@ -26,6 +27,21 @@
     --font-digital: sans-serif; /* Podría usar una fuente digital real si estuviera disponible */
 
     /* Modal y Overlays */
+=======
+:root {
+    --device-bg: #1a1a1a;
+    --device-border: #333;
+    --screen-bg: #f0f2f5;
+    --screen-text: #222;
+    --highlight-green: #76c900;
+    --highlight-red: #d00000;
+    --highlight-yellow: #f4d03f;
+    --btn-bg: #2a2a2a;
+    --btn-hover: #3a3a3a;
+    --btn-text: #eee;
+    --font-main: 'Courier New', Courier, monospace;
+    --font-digital: sans-serif; /* Could use a real digital font if available, but sans-serif is the fallback */
+>>>>>>> origin/update-ui-efigps
     --modal-bg: #ffffff;
     --modal-overlay: rgba(0, 0, 0, 0.7);
 }
@@ -51,10 +67,14 @@ body {
     max-width: 900px;
 }
 
+<<<<<<< HEAD
 /* ==========================================================================
    Carcasa del Dispositivo
    ========================================================================== */
 
+=======
+/* Device Shell */
+>>>>>>> origin/update-ui-efigps
 .device-interface {
     background: linear-gradient(145deg, #1e1e1e, #141414);
     border-radius: 24px;
@@ -71,7 +91,11 @@ body {
     position: relative;
 }
 
+<<<<<<< HEAD
 /* Textura o acabado sutil del dispositivo */
+=======
+/* Add a subtle texture or finish to the device */
+>>>>>>> origin/update-ui-efigps
 .device-interface::before {
     content: '';
     position: absolute;
@@ -82,10 +106,14 @@ body {
     z-index: 5;
 }
 
+<<<<<<< HEAD
 /* ==========================================================================
    Pantalla del Dispositivo
    ========================================================================== */
 
+=======
+/* Screen Section */
+>>>>>>> origin/update-ui-efigps
 .screen-frame {
     background-color: #000;
     padding: 12px;
@@ -94,7 +122,11 @@ body {
     aspect-ratio: 4/3;
     display: flex;
     box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+<<<<<<< HEAD
     z-index: 6; /* Por encima del overlay del dispositivo */
+=======
+    z-index: 6; /* Above the device overlay */
+>>>>>>> origin/update-ui-efigps
 }
 
 .screen-content {
@@ -111,7 +143,11 @@ body {
     border-radius: 2px;
 }
 
+<<<<<<< HEAD
 /* Modo Alto Contraste */
+=======
+/* High Contrast Mode */
+>>>>>>> origin/update-ui-efigps
 .screen-content.high-contrast {
     background-color: #000;
     color: #fff;
@@ -121,7 +157,11 @@ body {
     border-bottom: 1px solid #fff;
 }
 
+<<<<<<< HEAD
 /* Elementos Internos de la Pantalla */
+=======
+/* Screen Internals */
+>>>>>>> origin/update-ui-efigps
 .status-bar {
     display: flex;
     justify-content: space-between;
@@ -157,7 +197,11 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+<<<<<<< HEAD
     font-size: 72px; /* Desviación grande */
+=======
+    font-size: 72px; /* Large deviation */
+>>>>>>> origin/update-ui-efigps
     font-family: var(--font-digital);
     font-weight: 700;
     border-top: 2px solid #ccc;
@@ -172,12 +216,64 @@ body {
     border-color: #555;
 }
 
+<<<<<<< HEAD
 /* Colores de Desviación */
+=======
+/* Deviation Colors */
+>>>>>>> origin/update-ui-efigps
 #deviation-display.late { color: var(--highlight-red); }
 #deviation-display.early { color: #009900; }
 .screen-content.high-contrast #deviation-display.late { color: #ff4444; }
 .screen-content.high-contrast #deviation-display.early { color: #44ff44; }
 
+<<<<<<< HEAD
+/* Estilos de Punta de Línea y Fin de Servicio */
+#deviation-display.service-finished {
+    font-size: 32px;
+    color: #555;
+    line-height: 1.2;
+    text-align: center;
+}
+.screen-content.high-contrast #deviation-display.service-finished {
+    color: #aaa;
+    font-weight: bold;
+}
+
+/* Caja de Punta de Línea */
+.terminal-box {
+    border: 2px solid #fff;
+    background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro semitransparente */
+    border-radius: 12px;
+    padding: 8px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    color: #fff;
+    min-width: 180px;
+}
+
+.terminal-label {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    color: #ddd;
+}
+
+.terminal-value {
+    font-size: 36px; /* Más pequeño que los 72px normales */
+    font-weight: bold;
+    font-family: var(--font-digital);
+}
+
+/* Colores dentro de la caja */
+.terminal-value.early { color: #44ff44; }
+.terminal-value.late { color: #ff4444; }
+
+=======
+>>>>>>> origin/update-ui-efigps
 .footer-info {
     padding: 8px 12px;
     display: flex;
@@ -203,7 +299,11 @@ body {
     font-weight: bold;
 }
 
+<<<<<<< HEAD
 /* Barra Inferior (Botones Físicos) */
+=======
+/* Bottom Bar */
+>>>>>>> origin/update-ui-efigps
 .bottom-bar {
     display: flex;
     justify-content: space-between;
@@ -246,7 +346,11 @@ body {
 
 #btn-contrast { color: #fff; font-weight: bold; }
 
+<<<<<<< HEAD
 /* Mapa de Navegación en Pantalla */
+=======
+/* Map Overlay in Screen */
+>>>>>>> origin/update-ui-efigps
 #nav-map-container {
     position: absolute;
     top: 0;
@@ -258,10 +362,14 @@ body {
 #nav-map { width: 100%; height: 100%; }
 
 
+<<<<<<< HEAD
 /* ==========================================================================
    Controles de Simulación
    ========================================================================== */
 
+=======
+/* Sim Controls */
+>>>>>>> origin/update-ui-efigps
 .sim-controls {
     display: flex;
     flex-direction: column;
@@ -301,7 +409,11 @@ body {
     background: #0056b3;
 }
 
+<<<<<<< HEAD
 /* Interruptor de Control Manual */
+=======
+/* Manual Control Switch */
+>>>>>>> origin/update-ui-efigps
 .manual-control-container {
     margin-top: 10px;
     padding-top: 15px;
@@ -352,10 +464,14 @@ input:focus + .slider { box-shadow: 0 0 1px var(--highlight-yellow); }
 input:checked + .slider:before { transform: translateX(24px); }
 
 
+<<<<<<< HEAD
 /* ==========================================================================
    Modal del Editor
    ========================================================================== */
 
+=======
+/* Editor Modal */
+>>>>>>> origin/update-ui-efigps
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -399,7 +515,11 @@ input:checked + .slider:before { transform: translateX(24px); }
     border-bottom: 1px solid #eee;
 }
 
+<<<<<<< HEAD
 /* Layout Vertical del Editor */
+=======
+/* Vertical Editor Layout */
+>>>>>>> origin/update-ui-efigps
 .editor-layout {
     display: flex;
     flex-direction: column;
@@ -409,7 +529,11 @@ input:checked + .slider:before { transform: translateX(24px); }
 
 .map-column {
     width: 100%;
+<<<<<<< HEAD
     flex: 0 0 35%; /* Usa porcentaje */
+=======
+    flex: 0 0 35%; /* Use percentage */
+>>>>>>> origin/update-ui-efigps
     border-bottom: 1px solid #ddd;
     display: flex;
     flex-direction: column;
@@ -456,7 +580,11 @@ input:checked + .slider:before { transform: translateX(24px); }
     outline: none;
 }
 
+<<<<<<< HEAD
 /* Lista de Paradas */
+=======
+/* Stop List */
+>>>>>>> origin/update-ui-efigps
 #stops-list {
     flex-grow: 1;
     border: 1px solid #eee;
@@ -500,7 +628,11 @@ input:checked + .slider:before { transform: translateX(24px); }
     color: #333;
 }
 
+<<<<<<< HEAD
 /* Acciones del Editor */
+=======
+/* Actions */
+>>>>>>> origin/update-ui-efigps
 .editor-actions {
     display: flex;
     gap: 10px;
@@ -526,6 +658,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 #btn-save-route:hover { background: #218838; box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3); }
 #btn-clear-route:hover { background: #c82333; box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3); }
 
+<<<<<<< HEAD
 
 /* ==========================================================================
    Modo Profesional
@@ -600,6 +733,9 @@ input:checked + .slider:before { transform: translateX(24px); }
 
 
 /* Rutas Guardadas */
+=======
+/* Saved Routes */
+>>>>>>> origin/update-ui-efigps
 #saved-routes-list {
     list-style: none;
     padding: 0;
@@ -631,11 +767,19 @@ input:checked + .slider:before { transform: translateX(24px); }
 .route-actions button.btn-danger:hover { background: #fff5f5; border-color: #ffc9c9; color: #dc3545; }
 
 
+<<<<<<< HEAD
 /* Optimización Móvil */
+=======
+/* Mobile Optimization */
+>>>>>>> origin/update-ui-efigps
 @media (max-width: 600px) {
     .screen-frame { height: 250px; }
     .map-column { flex: 0 0 300px; }
 }
 
+<<<<<<< HEAD
 /* Utilidad */
+=======
+/* Utility */
+>>>>>>> origin/update-ui-efigps
 .hidden { display: none !important; }

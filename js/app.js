@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+<<<<<<< HEAD
     /**
      * @typedef {Object} AppState
      * @property {Object|null} currentRoute - La ruta seleccionada actualmente { name, stops: [] }.
@@ -26,26 +27,53 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRoute: null,
         isSimulating: false,
         simProgress: 0,
+=======
+    // State
+    const state = {
+        currentRoute: null, // { name: '', stops: [] }
+        isSimulating: false,
+        simProgress: 0, // 0 to 100
+>>>>>>> origin/update-ui-efigps
         simInterval: null,
         highContrast: false,
         mapVisible: false,
         speed: 0,
+<<<<<<< HEAD
         lastGpsPosition: null,
+=======
+        lastGpsPosition: null, // { lat, lng, speed }
+>>>>>>> origin/update-ui-efigps
         gpsWatchId: null,
 
         // Stop Selection Mode
         manualMode: false,
+<<<<<<< HEAD
         manualStopIndex: 0,
+=======
+        manualStopIndex: 0, // Index of the manually selected next stop
+>>>>>>> origin/update-ui-efigps
 
         // Editor
         editingRouteId: null,
         drawingMode: false,
-        drawingRouteIndex: -1
+<<<<<<< HEAD
+        drawingRouteIndex: -1,
+
+        // Itinerario Activo (Modo PRO)
+        activeItinerary: null, // Lista completa de viajes
+        activeTripIndex: -1,   // Índice del viaje actual
+        isServiceFinished: false // Indica si terminó todo el diagrama
     };
 
     /**
      * Referencias a elementos del DOM utilizados en la aplicación.
      */
+=======
+        drawingRouteIndex: -1 // The index of the STOP we are drawing FROM (to next stop)
+    };
+
+    // DOM Elements
+>>>>>>> origin/update-ui-efigps
     const els = {
         clock: document.getElementById('clock'),
         deviation: document.getElementById('deviation-display'),
@@ -53,6 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
         arrivalTime: document.getElementById('arrival-time'),
         routeName: document.getElementById('route-name'),
         speed: document.getElementById('speed'),
+<<<<<<< HEAD
+        lapDisplay: document.getElementById('lap-display'),
         screenContent: document.querySelector('.screen-content'),
         navMapContainer: document.getElementById('nav-map-container'),
 
@@ -61,16 +91,33 @@ document.addEventListener('DOMContentLoaded', () => {
         btnContrast: document.getElementById('btn-contrast'),
         btnRouteEditor: document.getElementById('btn-route-editor'),
         btnProMode: document.getElementById('btn-pro-mode'),
+=======
+        screenContent: document.querySelector('.screen-content'),
+        navMapContainer: document.getElementById('nav-map-container'),
+
+        // Buttons
+        btnMap: document.getElementById('btn-map-toggle'),
+        btnContrast: document.getElementById('btn-contrast'),
+        btnRouteEditor: document.getElementById('btn-route-editor'),
+>>>>>>> origin/update-ui-efigps
         btnSimStart: document.getElementById('btn-start-sim'),
         btnUp: document.getElementById('btn-up'),
         btnDown: document.getElementById('btn-down'),
 
+<<<<<<< HEAD
         // Controles
+=======
+        // Controls (moved outside)
+>>>>>>> origin/update-ui-efigps
         modeSwitch: document.getElementById('mode-switch-input'), // Checkbox
 
         // Editor
         modal: document.getElementById('editor-modal'),
+<<<<<<< HEAD
+        closeModal: document.getElementById('close-editor-modal'),
+=======
         closeModal: document.querySelector('.close-modal'),
+>>>>>>> origin/update-ui-efigps
         stopsList: document.getElementById('stops-list'),
         btnCalc: document.getElementById('btn-calc-times'),
         btnSave: document.getElementById('btn-save-route'),
@@ -78,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         routeNameInput: document.getElementById('route-name-input'),
         savedList: document.getElementById('saved-routes-list'),
 
+<<<<<<< HEAD
         // PRO Mode Elements
         proModal: document.getElementById('pro-modal'),
         closeProModal: document.getElementById('close-pro-modal'),
@@ -94,7 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lineStartTime: document.getElementById('line-start-time'),
         lineEndTime: document.getElementById('line-end-time'),
         lineTurns: document.getElementById('line-turns'),
-        lineRest: document.getElementById('line-rest'),
+        lineRestIda: document.getElementById('line-rest-ida'),
+        lineRestVuelta: document.getElementById('line-rest-vuelta'),
         btnSaveLine: document.getElementById('btn-save-line'),
         btnCancelLine: document.getElementById('btn-cancel-line'),
         btnDeleteLine: document.getElementById('btn-delete-line'),
@@ -105,10 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBackLines: document.getElementById('btn-back-lines'),
 
         // Simulación
+=======
+        // Sim
+>>>>>>> origin/update-ui-efigps
         simSlider: document.getElementById('sim-slider'),
         simStatus: document.getElementById('sim-status')
     };
 
+<<<<<<< HEAD
     // --- Inicialización ---
 
     /**
@@ -139,6 +192,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function startGpsTracking() {
         if (!navigator.geolocation) {
             console.error("Geolocalización no soportada");
+=======
+    // --- Initialization ---
+
+    function init() {
+        // Clock loop
+        setInterval(updateClock, 1000);
+
+        // Init Maps
+        // (MapLogic init is called when modal opens or map is toggled to avoid layout issues)
+
+        // Load Saved Routes
+        loadSavedRoutes();
+
+        // Start GPS
+        startGpsTracking();
+
+        // Events
+        setupEventListeners();
+    }
+
+    function startGpsTracking() {
+        if (!navigator.geolocation) {
+            console.error("Geolocation not supported");
+>>>>>>> origin/update-ui-efigps
             return;
         }
 
@@ -150,14 +227,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     speed: pos.coords.speed // m/s
                 };
 
+<<<<<<< HEAD
                 // Actualizar Visualización de Velocidad (convertir m/s a km/h)
+=======
+                // Update Speed Display (convert m/s to km/h)
+>>>>>>> origin/update-ui-efigps
                 if (pos.coords.speed !== null) {
                     state.speed = (pos.coords.speed * 3.6).toFixed(0);
                     els.speed.textContent = `${state.speed} km/h`;
                 }
             },
             (err) => {
+<<<<<<< HEAD
                 console.error("Error de GPS:", err);
+=======
+                console.error("GPS Error:", err);
+>>>>>>> origin/update-ui-efigps
             },
             {
                 enableHighAccuracy: true,
@@ -167,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+<<<<<<< HEAD
     /**
      * Configura los listeners de eventos para botones y elementos de la interfaz.
      */
@@ -178,22 +264,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.btnProMode) els.btnProMode.addEventListener('click', openProMode);
 
         // Cambio de Modo
+=======
+    function setupEventListeners() {
+        // Device Buttons
+        els.btnContrast.addEventListener('click', toggleHighContrast);
+        els.btnMap.addEventListener('click', toggleNavMap);
+        els.btnRouteEditor.addEventListener('click', openEditor); // Using "User" icon for Editor as per plan
+
+        // Mode Switch
+>>>>>>> origin/update-ui-efigps
         if (els.modeSwitch) {
              els.modeSwitch.addEventListener('change', (e) => {
                  toggleStopSelectionMode(e.target.checked);
              });
         }
 
+<<<<<<< HEAD
         // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
-            state.drawingMode = false; // Asegurar salir modo dibujo
+            stopDrawing(); // Asegurar salir modo dibujo y limpiar estado UI
             MapLogic.renderEditorRoute(tempStops); // Redibujar limpio
+=======
+        // Editor
+        els.closeModal.addEventListener('click', () => {
+            els.modal.classList.add('hidden');
+            state.drawingMode = false; // Ensure we exit drawing mode
+            MapLogic.renderEditorRoute(tempStops); // Redraw clean
+>>>>>>> origin/update-ui-efigps
         });
         els.btnCalc.addEventListener('click', calculateEditorTimes);
         els.btnSave.addEventListener('click', saveRoute);
         els.btnClear.addEventListener('click', clearEditor);
 
+<<<<<<< HEAD
         // PRO Mode Events
         els.closeProModal.addEventListener('click', () => els.proModal.classList.add('hidden'));
         els.btnCreateLine.addEventListener('click', () => openLineEditor(null));
@@ -209,29 +313,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Simulación
+=======
+        // Simulation
+>>>>>>> origin/update-ui-efigps
         els.btnSimStart.addEventListener('click', toggleSimulation);
         els.simSlider.addEventListener('input', (e) => {
             state.simProgress = parseFloat(e.target.value);
             updateSimulationLoop();
         });
 
+<<<<<<< HEAD
         // Vinculación Teclas Físicas (Arriba/Abajo)
+=======
+        // Physical Keys Binding (Up/Down)
+>>>>>>> origin/update-ui-efigps
         els.btnUp.addEventListener('click', () => handleArrowKey('up'));
         els.btnDown.addEventListener('click', () => handleArrowKey('down'));
     }
 
+<<<<<<< HEAD
     /**
      * Alterna el modo de selección de parada entre Automático y Manual.
      *
      * @param {boolean} isManual - True para modo manual, False para automático.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function toggleStopSelectionMode(isManual) {
         state.manualMode = isManual;
 
         if (state.manualMode) {
+<<<<<<< HEAD
             // Inicializar índice manual si es necesario, posiblemente al índice automático actual
             if (state.currentRoute) {
                 // Encontrar lo que la lógica automática piensa que es siguiente
+=======
+            // Init manual index if needed, possibly to current auto index?
+            // Ideally we find the closest next stop and set it there
+            if (state.currentRoute) {
+                // Find what the auto logic thinks is next
+>>>>>>> origin/update-ui-efigps
                 const now = new Date();
                 const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
                 const pos = getCurrentPosition();
@@ -247,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateClock();
     }
 
+<<<<<<< HEAD
     /**
      * Maneja las pulsaciones de las teclas de flecha (físicas o virtuales).
      * En modo manual, cambia la parada seleccionada.
@@ -255,23 +377,47 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function handleArrowKey(direction) {
         // Usuario: Arriba = +1 Parada, Abajo = -1 Parada
+=======
+    function handleArrowKey(direction) {
+        // User says: Up = +1 Stop, Down = -1 Stop
+        // Previous implementation was Up = Next, Down = Prev
+        // This matches logic.
+>>>>>>> origin/update-ui-efigps
 
         if (state.manualMode) {
             if (!state.currentRoute) return;
 
             if (direction === 'up') {
+<<<<<<< HEAD
                 // Siguiente parada (Incrementar índice)
+                state.manualStopIndex++;
+
+                // Verificar si intentamos pasar del final (Transición de Tramo)
+                if (state.manualStopIndex >= state.currentRoute.stops.length) {
+                    state.manualStopIndex = state.currentRoute.stops.length - 1;
+
+                    if (state.activeItinerary) {
+                        checkEndOfLegTransition();
+                        return; // Salir para evitar actualizar desviación con el índice viejo
+                    }
+                }
+            } else {
+                // Parada anterior (Decrementar índice)
+=======
+                // Next stop (Increment index)
                 state.manualStopIndex++;
                 if (state.manualStopIndex >= state.currentRoute.stops.length) {
                     state.manualStopIndex = state.currentRoute.stops.length - 1;
                 }
             } else {
-                // Parada anterior (Decrementar índice)
+                // Prev stop (Decrement index)
+>>>>>>> origin/update-ui-efigps
                 state.manualStopIndex--;
                 if (state.manualStopIndex < 0) {
                     state.manualStopIndex = 0;
                 }
             }
+<<<<<<< HEAD
             // Forzar actualización inmediata
             updateClock();
 
@@ -287,6 +433,19 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * @param {number} delta - Cambio en el progreso.
      */
+=======
+            // Force update immediately
+            updateClock();
+
+            // Ensure the UI is updated even if deviation doesn't change significantly?
+            // Force deviation update call
+            const now = new Date();
+            updateDeviation(now);
+        }
+        // Else: Do nothing in Auto Mode as per requirements.
+    }
+
+>>>>>>> origin/update-ui-efigps
     function adjustSim(delta) {
         if (!state.isSimulating && !state.currentRoute) return;
         let newVal = state.simProgress + delta;
@@ -296,9 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSimulationLoop();
     }
 
+<<<<<<< HEAD
     /**
      * Reinicia el estado de la simulación.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function resetSimulation() {
         state.isSimulating = false;
         if (state.simInterval) clearInterval(state.simInterval);
@@ -306,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.simSlider.value = 0;
         els.simStatus.textContent = "Inactivo";
         els.btnSimStart.textContent = "Iniciar Simulación";
+<<<<<<< HEAD
         updateClock(); // Resetear vista
     }
 
@@ -315,11 +478,20 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * @returns {Object|null} Objeto con {lat, lng} o null si no está disponible.
      */
+=======
+        updateClock(); // Reset view
+    }
+
+>>>>>>> origin/update-ui-efigps
     function getCurrentPosition() {
          if (state.isSimulating) {
             return getSimulatedPosition(state.simProgress);
         } else {
+<<<<<<< HEAD
             // GPS Real
+=======
+            // Real GPS
+>>>>>>> origin/update-ui-efigps
             if (!state.lastGpsPosition) return null;
             return {
                 lat: state.lastGpsPosition.lat,
@@ -328,12 +500,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     // --- Características Principales ---
 
     /**
      * Actualiza el reloj de la pantalla y desencadena la actualización de desviación.
      * Se ejecuta cada segundo.
      */
+=======
+    // --- Core Features ---
+
+>>>>>>> origin/update-ui-efigps
     function updateClock() {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('es-AR', { hour12: false });
@@ -344,37 +521,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Calcula y actualiza la visualización de la desviación (adelanto/atraso).
      *
      * @param {Date} nowDate - Objeto Date actual.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function updateDeviation(nowDate) {
         try {
             const currentSec = nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds();
 
+<<<<<<< HEAD
             // Obtener Posición
+=======
+            // Get Position
+>>>>>>> origin/update-ui-efigps
             const pos = getCurrentPosition();
             if (!pos) return;
 
             let lat = pos.lat;
             let lng = pos.lng;
 
+<<<<<<< HEAD
             // Actualizar Marcador Mapa
             if (state.mapVisible) {
                 MapLogic.updateUserPosition(lat, lng);
             }
 
+            // Si no hay ruta cargada, no calculamos desviación ni lógica de tramo
+            if (!state.currentRoute) return;
+
             // Calcular Desviación
             let result = null;
 
+            // Detección de Fin de Tramo (Punta de Línea)
+            const isLastStop = state.manualMode && state.manualStopIndex === state.currentRoute.stops.length - 1;
+
             if (state.manualMode) {
                 // Cálculo de Desviación Manual
+=======
+            // Update Map Marker
+            if (state.mapVisible) {
+                MapLogic.updateUserPosition(lat, lng);
+            }
+
+            // Calculate Deviation
+            let result = null;
+
+            if (state.manualMode) {
+                // Manual Deviation Calculation
+>>>>>>> origin/update-ui-efigps
                 if (state.manualStopIndex < 0 || state.manualStopIndex >= state.currentRoute.stops.length) return;
                 const targetStop = state.currentRoute.stops[state.manualStopIndex];
                 const idx = state.manualStopIndex;
 
                 if (idx === 0) {
+<<<<<<< HEAD
                     // ¿Usuario seleccionó el punto de inicio?
                     // Desviación es TiempoAhora - TiempoInicio
                     const tStart = RouteLogic.timeToSeconds(targetStop.time);
@@ -428,12 +632,37 @@ document.addEventListener('DOMContentLoaded', () => {
                             bestRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
                         }
                     }
+=======
+                    // User selected the start point?
+                    // Deviation is just TimeNow - TimeStart?
+                    const tStart = RouteLogic.timeToSeconds(targetStop.time);
+                    const diff = tStart - currentSec;
+                    // If positive, we are early (start is in future).
+                    // If negative, we are late (start was in past).
+                    // Format logic shared?
+                    result = formatDeviationResult(diff, targetStop.name, tStart);
+                } else {
+                    // Segment: idx-1 -> idx
+                    const prevStop = state.currentRoute.stops[idx-1];
+
+                    // Project on segment
+                    const proj = RouteLogic.projectPointOnSegment(
+                        {x: lat, y: lng},
+                        {x: prevStop.lat, y: prevStop.lng},
+                        {x: targetStop.lat, y: targetStop.lng}
+                    );
+>>>>>>> origin/update-ui-efigps
 
                     const t1 = RouteLogic.timeToSeconds(prevStop.time);
                     const t2 = RouteLogic.timeToSeconds(targetStop.time);
 
+<<<<<<< HEAD
                     const expectedTimeSec = t1 + (t2 - t1) * bestRatio;
                     const diff = expectedTimeSec - currentSec; // + adelante, - atrás
+=======
+                    const expectedTimeSec = t1 + (t2 - t1) * proj.ratio;
+                    const diff = expectedTimeSec - currentSec; // + ahead, - behind
+>>>>>>> origin/update-ui-efigps
 
                     result = formatDeviationResult(diff, targetStop.name, expectedTimeSec);
                 }
@@ -444,10 +673,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (result) {
+<<<<<<< HEAD
             // Mostrar
             els.deviation.textContent = result.deviationStr;
 
             // Color/Estilo
+=======
+            // Display
+            els.deviation.textContent = result.deviationStr;
+
+            // Color/Style
+>>>>>>> origin/update-ui-efigps
             els.deviation.classList.remove('late', 'early');
             if (result.deviationSec >= 0) {
                 els.deviation.classList.add('early');
@@ -457,22 +693,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             els.nextStop.textContent = result.nextStop;
 
+<<<<<<< HEAD
             // Actualizar Hora de Llegada
+=======
+            // Update Arrival Time
+>>>>>>> origin/update-ui-efigps
             const nextStopObj = state.currentRoute.stops.find(s => s.name === result.nextStop);
             if (nextStopObj) {
                 els.arrivalTime.textContent = nextStopObj.time.substring(0, 5);
             }
 
+<<<<<<< HEAD
             // Sincronizar Índice Manual si en Modo Auto (para que al cambiar a manual estemos en el correcto)
+=======
+            // Sync Manual Index if in Auto Mode (so if we switch to manual, we start correct)
+>>>>>>> origin/update-ui-efigps
             if (!state.manualMode) {
                  const idx = state.currentRoute.stops.findIndex(s => s.name === result.nextStop);
                  if (idx !== -1) state.manualStopIndex = idx;
             }
 
+<<<<<<< HEAD
             // Actualizar Marcadores Mapa (Verde para siguiente parada)
             if (state.mapVisible) {
                 MapLogic.updateStopMarkers(result.nextStop);
             }
+
+            // Verificar si estamos en Punta de Línea (Inicio de recorrido y dentro de 50m)
+            checkTerminalStatus(lat, lng);
         }
     } catch (e) {
         console.error("Error de Desviación:", e);
@@ -487,6 +735,18 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {number} expectedTime - Tiempo esperado en segundos.
      * @returns {Object} Objeto con datos formateados de desviación.
      */
+=======
+            // Update Map Markers (Green for next stop)
+            if (state.mapVisible) {
+                MapLogic.updateStopMarkers(result.nextStop);
+            }
+        }
+    } catch (e) {
+        console.error("Deviation Error:", e);
+    }
+    }
+
+>>>>>>> origin/update-ui-efigps
     function formatDeviationResult(diff, nextStopName, expectedTime) {
         const absDiff = Math.abs(diff);
         const m = Math.floor(absDiff / 60);
@@ -502,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+<<<<<<< HEAD
     // --- Lógica de Simulación ---
 
     /**
@@ -510,15 +771,27 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {number} progressPercent - Porcentaje de progreso (0-100).
      * @returns {Object|null} Coordenadas {lat, lng} correspondientes al progreso.
      */
+=======
+    // --- Simulation Logic ---
+
+>>>>>>> origin/update-ui-efigps
     function getSimulatedPosition(progressPercent) {
         if (!state.currentRoute || state.currentRoute.stops.length < 2) return null;
 
         const stops = state.currentRoute.stops;
+<<<<<<< HEAD
         // Calcular distancia total
         let totalDist = 0;
         const dists = [];
         for(let i=0; i<stops.length-1; i++) {
             // Usar getPathTotalDistance para simulación precisa
+=======
+        // Calculate total distance
+        let totalDist = 0;
+        const dists = [];
+        for(let i=0; i<stops.length-1; i++) {
+            // Use getPathTotalDistance for accurate simulation
+>>>>>>> origin/update-ui-efigps
             const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
             const d = RouteLogic.getPathTotalDistance(points);
             dists.push(d);
@@ -527,12 +800,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const targetDist = totalDist * (progressPercent / 100);
 
+<<<<<<< HEAD
         // Encontrar segmento
         let covered = 0;
         for(let i=0; i<dists.length; i++) {
             if (covered + dists[i] >= targetDist) {
                 // En este segmento PARADA-A-PARADA
                 // Ahora necesitamos encontrar dónde en la polilínea estamos.
+=======
+        // Find segment
+        let covered = 0;
+        for(let i=0; i<dists.length; i++) {
+            if (covered + dists[i] >= targetDist) {
+                // In this STOP-TO-STOP segment
+                // Now we need to find where in the polyline we are.
+>>>>>>> origin/update-ui-efigps
                 const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
                 const distInSegment = targetDist - covered;
 
@@ -553,14 +835,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             covered += dists[i];
         }
+<<<<<<< HEAD
         // Fin de ruta
+=======
+        // End of route
+>>>>>>> origin/update-ui-efigps
         const last = stops[stops.length-1];
         return { lat: last.lat, lng: last.lng };
     }
 
+<<<<<<< HEAD
     /**
      * Inicia o detiene la simulación.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function toggleSimulation() {
         if (state.isSimulating) {
             state.isSimulating = false;
@@ -578,14 +867,26 @@ document.addEventListener('DOMContentLoaded', () => {
             els.simSlider.disabled = false;
             els.simStatus.textContent = "Simulando...";
 
+<<<<<<< HEAD
             state.simInterval = setInterval(() => {
                 if (state.simProgress < 100) {
                    // Espacio para auto-movimiento si se desea
+=======
+            // Auto-move slider for effect? Or just manual?
+            // Requirement says "Debe verse igual... navegara con este dispositivo... Agregar modo Demo".
+            // Let's make it auto-increment slightly to show changes.
+            state.simInterval = setInterval(() => {
+                if (state.simProgress < 100) {
+                   // state.simProgress += 0.1; // Slow auto move
+                   // els.simSlider.value = state.simProgress;
+                   // Not auto moving, let user control it or it might override manual test
+>>>>>>> origin/update-ui-efigps
                 }
             }, 100);
         }
     }
 
+<<<<<<< HEAD
     /**
      * Actualiza el bucle de simulación (refresca reloj y cálculos).
      */
@@ -653,7 +954,8 @@ document.addEventListener('DOMContentLoaded', () => {
             startTime: line.start,
             endTime: line.end,
             turns: line.turns,
-            restMinutes: line.rest
+            restIda: line.restIda !== undefined ? line.restIda : (line.rest || 0),
+            restVuelta: line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0)
         }, rIda, rVuelta);
 
         if (!trips || trips.length === 0) {
@@ -676,20 +978,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="trip-leg">Tramo ${trip.legIndex}</div>
             `;
             div.onclick = () => {
-                startTrip(trip, line.name);
+                startItinerary(trips, trips.indexOf(trip), line.name);
             };
             els.tripsList.appendChild(div);
         });
     };
 
-    function startTrip(trip, lineName) {
+    /**
+     * Inicia un itinerario completo (o salta a un tramo específico).
+     * @param {Array} trips - Lista completa de viajes calculados.
+     * @param {number} startIndex - Índice del viaje inicial seleccionado.
+     * @param {string} lineName - Nombre base de la línea.
+     */
+    function startItinerary(trips, startIndex, lineName) {
+        state.activeItinerary = trips;
+        state.activeTripIndex = startIndex;
+        state.isServiceFinished = false;
+
+        loadTripFromItinerary(lineName);
+        els.proModal.classList.add('hidden');
+    }
+
+    function loadTripFromItinerary(lineName) {
+        if (!state.activeItinerary || state.activeTripIndex < 0 || state.activeTripIndex >= state.activeItinerary.length) {
+             finishService();
+             return;
+        }
+
+        const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {
             id: trip.id,
             name: `${lineName} (${trip.direction})`,
             stops: trip.stops
         };
+
+        // Cargar ruta
         selectRoute(routeObj);
-        els.proModal.classList.add('hidden');
+
+        // Resetear visualización de servicio finalizado por si acaso
+        state.isServiceFinished = false;
+        els.deviation.classList.remove('service-finished');
+
+        // Actualizar contador de vueltas (VH)
+        // Cada vuelta son 2 tramos (Ida + Vuelta).
+        // Index 0, 1 -> Vuelta 1. Index 2, 3 -> Vuelta 2.
+        const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
+        els.lapDisplay.textContent = `VH ${lapNumber}`;
+    }
+
+    function finishService() {
+        state.currentRoute = null;
+        state.isServiceFinished = true;
+        state.activeItinerary = null;
+        state.activeTripIndex = -1;
+
+        els.routeName.textContent = "SERVICIO FINALIZADO";
+        els.deviation.textContent = "Servicio Finalizado";
+        els.deviation.classList.remove('late', 'early', 'neutral');
+        els.deviation.classList.add('service-finished'); // Clase para estilo especial
+        els.nextStop.textContent = "---";
+        els.arrivalTime.textContent = "--:--";
+
+        // Limpiar mapa
+        if (state.mapVisible) MapLogic.initNavMap('nav-map');
     }
 
     window.editLine = function(id) {
@@ -723,7 +1074,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = line.start;
             els.lineEndTime.value = line.end;
             els.lineTurns.value = line.turns;
-            els.lineRest.value = line.rest;
+            els.lineRestIda.value = line.restIda !== undefined ? line.restIda : (line.rest || 0);
+            els.lineRestVuelta.value = line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0);
             els.btnDeleteLine.classList.remove('hidden');
         } else {
             editingLineId = null;
@@ -733,7 +1085,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = '';
             els.lineEndTime.value = '';
             els.lineTurns.value = '';
-            els.lineRest.value = 0;
+            els.lineRestIda.value = 0;
+            els.lineRestVuelta.value = 0;
             els.btnDeleteLine.classList.add('hidden');
         }
     }
@@ -745,7 +1098,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = els.lineStartTime.value;
         const end = els.lineEndTime.value;
         const turns = els.lineTurns.value;
-        const rest = els.lineRest.value;
+        const restIda = els.lineRestIda.value;
+        const restVuelta = els.lineRestVuelta.value;
 
         if (!name || !ida || !vuelta || !start || !end || !turns) {
             alert("Complete todos los campos obligatorios");
@@ -760,7 +1114,8 @@ document.addEventListener('DOMContentLoaded', () => {
             start,
             end,
             turns: parseFloat(turns),
-            rest: parseInt(rest) || 0
+            restIda: parseInt(restIda) || 0,
+            restVuelta: parseInt(restVuelta) || 0
         };
 
         let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
@@ -796,6 +1151,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function openEditor() {
         els.modal.classList.remove('hidden');
         // Init mapa después de visible
+=======
+    function updateSimulationLoop() {
+        // Trigger update manually
+        updateClock();
+    }
+
+    // --- Editor Logic ---
+
+    let tempStops = [];
+
+    function openEditor() {
+        els.modal.classList.remove('hidden');
+        // Init map after visible
+>>>>>>> origin/update-ui-efigps
         setTimeout(() => {
             MapLogic.initEditorMap('editor-map', (latlng) => {
                 handleMapClick(latlng);
@@ -803,21 +1172,32 @@ document.addEventListener('DOMContentLoaded', () => {
             MapLogic.editorMap.invalidateSize();
         }, 100);
 
+<<<<<<< HEAD
         // Reset estado editor
         if (!state.editingRouteId) {
             clearEditor();
         } else {
             // Si editando existente, renderizarla
+=======
+        // Reset editor state
+        if (!state.editingRouteId) {
+            clearEditor();
+        } else {
+            // If editing existing, render it
+>>>>>>> origin/update-ui-efigps
             MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         }
     }
 
+<<<<<<< HEAD
     /**
      * Maneja el clic en el mapa del editor.
      * Dependiendo del modo, añade una parada o un punto de trazado.
      *
      * @param {Object} latlng - Coordenadas del clic.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function handleMapClick(latlng) {
         if (state.drawingMode) {
             addPathPoint(latlng);
@@ -826,11 +1206,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Añade una nueva parada a la lista de edición.
      *
      * @param {Object} latlng - Coordenadas de la nueva parada.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function addStopToEditor(latlng) {
         const count = tempStops.length + 1;
         const stop = {
@@ -838,13 +1221,18 @@ document.addEventListener('DOMContentLoaded', () => {
             lat: latlng.lat,
             lng: latlng.lng,
             time: '',
+<<<<<<< HEAD
             pathNext: [] // Init path vacío
+=======
+            pathNext: [] // Init empty path
+>>>>>>> origin/update-ui-efigps
         };
         tempStops.push(stop);
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         renderStopList();
     }
 
+<<<<<<< HEAD
     /**
      * Actualiza la ubicación de una parada existente (por arrastre).
      *
@@ -852,11 +1240,14 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {number} lat - Nueva latitud.
      * @param {number} lng - Nueva longitud.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function updateStopLocation(index, lat, lng) {
         if (tempStops[index]) {
             tempStops[index].lat = lat;
             tempStops[index].lng = lng;
 
+<<<<<<< HEAD
             // Re-render ruta línea porque se movió
             MapLogic.renderEditorRoute(tempStops, updateStopLocation);
             renderStopList(); // Actualizar coordenadas mostradas
@@ -868,6 +1259,14 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * @param {Object} latlng - Coordenadas del punto.
      */
+=======
+            // Re-render route line because it moved
+            MapLogic.renderEditorRoute(tempStops, updateStopLocation);
+            renderStopList(); // Update displayed coords
+        }
+    }
+
+>>>>>>> origin/update-ui-efigps
     function addPathPoint(latlng) {
         if (state.drawingRouteIndex === -1) return;
         const stop = tempStops[state.drawingRouteIndex];
@@ -876,6 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stop.pathNext.push({lat: latlng.lat, lng: latlng.lng});
 
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
+<<<<<<< HEAD
         renderStopList(); // Para mostrar botón Deshacer habilitado?
     }
 
@@ -884,20 +1284,32 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * @param {number} index - Índice de la parada de origen.
      */
+=======
+        renderStopList(); // To show Undo button enabled?
+    }
+
+>>>>>>> origin/update-ui-efigps
     function startDrawing(index) {
         state.drawingMode = true;
         state.drawingRouteIndex = index;
 
+<<<<<<< HEAD
         // Limpiar camino existente para dejar al usuario redibujar
+=======
+        // Clear existing path to let user redraw
+>>>>>>> origin/update-ui-efigps
         tempStops[index].pathNext = [];
 
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         renderStopList();
     }
 
+<<<<<<< HEAD
     /**
      * Deshace el último punto añadido en modo dibujo.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function undoLastPoint() {
         if (!state.drawingMode || state.drawingRouteIndex === -1) return;
         const stop = tempStops[state.drawingRouteIndex];
@@ -907,15 +1319,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Finaliza el modo de dibujo.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function stopDrawing() {
         state.drawingMode = false;
         state.drawingRouteIndex = -1;
         renderStopList();
     }
 
+<<<<<<< HEAD
     /**
      * Renderiza la lista de paradas en el panel lateral del editor.
      * Genera el HTML para cada ítem de parada y controles de dibujo.
@@ -924,6 +1340,12 @@ document.addEventListener('DOMContentLoaded', () => {
         els.stopsList.innerHTML = '';
         tempStops.forEach((stop, idx) => {
             // Item Parada
+=======
+    function renderStopList() {
+        els.stopsList.innerHTML = '';
+        tempStops.forEach((stop, idx) => {
+            // Stop Item
+>>>>>>> origin/update-ui-efigps
             const div = document.createElement('div');
             div.className = 'stop-item';
             div.innerHTML = `
@@ -940,7 +1362,11 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             els.stopsList.appendChild(div);
 
+<<<<<<< HEAD
             // Botón Dibujar (Solo entre paradas)
+=======
+            // Drawing Button (Only between stops)
+>>>>>>> origin/update-ui-efigps
             if (idx < tempStops.length - 1) {
                 const drawContainer = document.createElement('div');
                 drawContainer.className = 'draw-container';
@@ -948,7 +1374,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawContainer.style.margin = '5px 0';
 
                 if (state.drawingMode && state.drawingRouteIndex === idx) {
+<<<<<<< HEAD
                     // Controles de Dibujo Activos
+=======
+                    // Active Drawing Controls
+>>>>>>> origin/update-ui-efigps
                     drawContainer.innerHTML = `
                         <div style="background: #eef; padding: 5px; border: 1px dashed #00f; border-radius: 5px;">
                             <small>Dibujando tramo...</small><br>
@@ -957,12 +1387,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                 } else {
+<<<<<<< HEAD
                     // Botón Iniciar Dibujo
+=======
+                    // Start Drawing Button
+>>>>>>> origin/update-ui-efigps
                     const btnDraw = document.createElement('button');
                     btnDraw.innerHTML = '<i class="fa-solid fa-pencil"></i> Dibujar Trazado';
                     btnDraw.style.fontSize = '12px';
                     btnDraw.onclick = () => startDrawing(idx);
+<<<<<<< HEAD
                     // Deshabilitar si ya se está dibujando otro segmento
+=======
+                    // Disable if currently drawing another segment
+>>>>>>> origin/update-ui-efigps
                     if (state.drawingMode) btnDraw.disabled = true;
 
                     drawContainer.appendChild(btnDraw);
@@ -972,47 +1410,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+<<<<<<< HEAD
     // Exponer helpers a window para onclicks en innerHTML
     /**
      * Actualiza la hora de una parada desde el input HTML.
      * @param {number} idx - Índice de la parada.
      * @param {string} val - Valor de tiempo.
      */
+=======
+    // Expose window helpers for innerHTML onclicks
+>>>>>>> origin/update-ui-efigps
     window.updateStopTime = function(idx, val) {
         tempStops[idx].time = val;
         if (val.length === 5) tempStops[idx].time = val + ":00";
         else tempStops[idx].time = val;
     };
 
+<<<<<<< HEAD
     /** Wrapper global para deshacer dibujo */
+=======
+>>>>>>> origin/update-ui-efigps
     window.undoDrawing = function() {
         undoLastPoint();
     };
 
+<<<<<<< HEAD
     /** Wrapper global para finalizar dibujo */
+=======
+>>>>>>> origin/update-ui-efigps
     window.finishDrawing = function() {
         stopDrawing();
     };
 
+<<<<<<< HEAD
     /**
      * Calcula los tiempos intermedios para las paradas en el editor utilizando RouteLogic.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function calculateEditorTimes() {
         tempStops = RouteLogic.calculateIntermediateTimes(tempStops);
         renderStopList();
     }
 
+<<<<<<< HEAD
     /**
      * Guarda la ruta actual en el LocalStorage.
      * Valida que haya al menos 2 paradas y horarios de inicio/fin.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function saveRoute() {
         const name = els.routeNameInput.value || "Sin Nombre";
         if (tempStops.length < 2) {
             alert("Necesita al menos 2 paradas.");
             return;
         }
+<<<<<<< HEAD
         // Validación: Tiempos inicio y fin requeridos
+=======
+        // Validation: Start and End times needed
+>>>>>>> origin/update-ui-efigps
         if (!tempStops[0].time || !tempStops[tempStops.length-1].time) {
             alert("La primera y última parada deben tener horario.");
             return;
@@ -1027,7 +1485,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const saved = JSON.parse(localStorage.getItem('gps_routes') || '[]');
 
         if (state.editingRouteId) {
+<<<<<<< HEAD
             // Actualizar existente
+=======
+            // Update existing
+>>>>>>> origin/update-ui-efigps
             const index = saved.findIndex(r => r.id === state.editingRouteId);
             if (index !== -1) {
                 saved[index] = route;
@@ -1035,7 +1497,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 saved.push(route); // Fallback
             }
         } else {
+<<<<<<< HEAD
             // Crear nueva
+=======
+            // Create new
+>>>>>>> origin/update-ui-efigps
             saved.push(route);
         }
 
@@ -1044,6 +1510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // alert("Ruta guardada!"); // REMOVED ALERT TO FIX PLAYWRIGHT TIMING
         clearEditor(); // Reset
         loadSavedRoutes();
+<<<<<<< HEAD
         els.modal.classList.add('hidden'); // Ocultar manual en lugar de esperar alerta
 
         // Seleccionar siempre la ruta guardada
@@ -1053,15 +1520,28 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Limpia el estado del editor y resetea la vista.
      */
+=======
+        els.modal.classList.add('hidden'); // Manually hide modal instead of waiting for alert
+
+        // Always select the saved route to make it active immediately
+        selectRoute(route);
+    }
+
+>>>>>>> origin/update-ui-efigps
     function clearEditor() {
         tempStops = [];
         state.editingRouteId = null;
         els.routeNameInput.value = '';
+<<<<<<< HEAD
         state.drawingMode = false; // Reset estado
+=======
+        state.drawingMode = false; // Reset state
+>>>>>>> origin/update-ui-efigps
         state.drawingRouteIndex = -1;
         MapLogic.clearEditor();
         renderStopList();
 
+<<<<<<< HEAD
         // Si se añaden botones cancelar/nuevo luego, actualizar texto
         els.btnSave.textContent = "Guardar Bandera";
     }
@@ -1069,6 +1549,12 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Carga las rutas guardadas desde LocalStorage y las renderiza en la lista.
      */
+=======
+        // If buttons for cancel/new are added later, update text
+        els.btnSave.textContent = "Guardar Bandera";
+    }
+
+>>>>>>> origin/update-ui-efigps
     function loadSavedRoutes() {
         const saved = JSON.parse(localStorage.getItem('gps_routes') || '[]');
         els.savedList.innerHTML = '';
@@ -1119,17 +1605,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+<<<<<<< HEAD
     /**
      * Carga una ruta en el editor para su modificación.
      *
      * @param {Object} route - Objeto de ruta a editar.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function editRoute(route) {
         state.editingRouteId = route.id;
         els.routeNameInput.value = route.name;
         tempStops = JSON.parse(JSON.stringify(route.stops));
 
+<<<<<<< HEAD
         // Asegurar pathNext existe
+=======
+        // Ensure pathNext exists for all
+>>>>>>> origin/update-ui-efigps
         tempStops.forEach(s => {
             if (!s.pathNext) s.pathNext = [];
         });
@@ -1139,11 +1632,14 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnSave.textContent = "Actualizar Bandera";
     }
 
+<<<<<<< HEAD
     /**
      * Elimina una ruta guardada.
      *
      * @param {number} id - ID de la ruta a eliminar.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function deleteRoute(id) {
         if (!confirm("¿Seguro que desea eliminar esta bandera?")) return;
 
@@ -1156,6 +1652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentRoute && state.currentRoute.id === id) {
             state.currentRoute = null;
             els.routeName.textContent = "SIN BANDERA";
+<<<<<<< HEAD
             // Limpiar nav map
             if (state.mapVisible) MapLogic.initNavMap('nav-map'); // reset view
         }
@@ -1166,6 +1663,13 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * @param {Object} route - La ruta a activar.
      */
+=======
+            // Clear nav map
+            if (state.mapVisible) MapLogic.initNavMap('nav-map'); // reset view not perfectly clean but okay
+        }
+    }
+
+>>>>>>> origin/update-ui-efigps
     function selectRoute(route) {
         state.currentRoute = route;
         els.routeName.textContent = route.name;
@@ -1176,11 +1680,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     // --- Toggles UI Dispositivo ---
 
     /**
      * Alterna el modo de alto contraste de la pantalla.
      */
+=======
+    // --- Device UI Toggles ---
+
+>>>>>>> origin/update-ui-efigps
     function toggleHighContrast() {
         state.highContrast = !state.highContrast;
         if (state.highContrast) {
@@ -1190,9 +1699,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Alterna la visibilidad del mapa de navegación en pantalla.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     function toggleNavMap() {
         state.mapVisible = !state.mapVisible;
         if (state.mapVisible) {
@@ -1209,6 +1721,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+<<<<<<< HEAD
+    /**
+     * Realiza la transición inmediata al siguiente tramo si existe.
+     */
+    function checkEndOfLegTransition() {
+        const nextTripIndex = state.activeTripIndex + 1;
+
+        if (nextTripIndex >= state.activeItinerary.length) {
+            // Fin de servicio
+            finishService();
+            return;
+        }
+
+        // Transición Inmediata: Cargar siguiente tramo
+        state.activeTripIndex++;
+        const nextTrip = state.activeItinerary[state.activeTripIndex];
+
+        // Resetear a inicio para el nuevo tramo
+        state.manualStopIndex = 0;
+
+        // Cargar ruta
+        // Usamos el nombre original si está disponible (hack: obtener de trip actual o anterior)
+        const currentName = els.routeName.textContent;
+        const baseName = currentName.split('(')[0].trim();
+
+        loadTripFromItinerary(baseName);
+
+        // Forzar actualización inmediata para mostrar el nuevo desvío (espera)
+        updateClock();
+    }
+
+    /**
+     * Verifica si se debe mostrar el mensaje "Punta de Línea" basado en la ubicación.
+     * @param {number} lat - Latitud actual.
+     * @param {number} lng - Longitud actual.
+     */
+    function checkTerminalStatus(lat, lng) {
+        if (!state.currentRoute || state.currentRoute.stops.length === 0) return;
+
+        // Verificar si estamos al inicio del recorrido (ej. índice 0 o 1)
+        // O simplemente cerca de la primera parada.
+        const startStop = state.currentRoute.stops[0];
+        const dist = RouteLogic.getDistance(lat, lng, startStop.lat, startStop.lng); // km
+        const distMeters = dist * 1000;
+
+        if (distMeters <= 50) {
+            // Dentro del radio de 50m de la punta
+            // Inyectar etiqueta "Punta de Línea" si no está ya
+            const currentHTML = els.deviation.innerHTML;
+            if (!currentHTML.includes('Punta de Línea')) {
+                 const val = els.deviation.textContent;
+                 const statusClass = els.deviation.classList.contains('early') ? 'early' : 'late';
+
+                 els.deviation.innerHTML = `
+                    <div class="terminal-box">
+                        <div class="terminal-label">Punta de Línea</div>
+                        <div class="terminal-value ${statusClass}">${val}</div>
+                    </div>
+                 `;
+            }
+        } else {
+            // Fuera del radio, limpiar etiqueta si existe
+            // El updateDeviation sobrescribe el textContent, eliminando el HTML extra,
+            // así que si NO hacemos nada aquí, se limpiará solo en el próximo tick de updateDeviation
+            // (porque updateDeviation hace els.deviation.textContent = ...).
+            // PERO, checkTerminalStatus se llama DESPUÉS de updateDeviation en el mismo tick.
+            // Así que si no inyectamos, queda limpio. Correcto.
+        }
+    }
+
+=======
+>>>>>>> origin/update-ui-efigps
     // Run
     init();
 });

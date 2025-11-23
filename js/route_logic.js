@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Lógica de enrutamiento y cálculos matemáticos para la navegación.
  * Maneja distancias, tiempos, interpolaciones y proyecciones geométricas.
@@ -15,6 +16,13 @@ const RouteLogic = {
      */
     getDistance: function(lat1, lon1, lat2, lon2) {
         const R = 6371; // Radio de la tierra en km
+=======
+const RouteLogic = {
+
+    // Calculate distance in km between two points (Haversine)
+    getDistance: function(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the earth in km
+>>>>>>> origin/update-ui-efigps
         const dLat = this.deg2rad(lat2 - lat1);
         const dLon = this.deg2rad(lon2 - lon1);
         const a =
@@ -22,6 +30,7 @@ const RouteLogic = {
             Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+<<<<<<< HEAD
         const d = R * c; // Distancia en km
         return d;
     },
@@ -32,28 +41,42 @@ const RouteLogic = {
      * @param {number} deg - El valor en grados.
      * @returns {number} El valor convertido a radianes.
      */
+=======
+        const d = R * c; // Distance in km
+        return d;
+    },
+
+>>>>>>> origin/update-ui-efigps
     deg2rad: function(deg) {
         return deg * (Math.PI/180);
     },
 
+<<<<<<< HEAD
     /**
      * Convierte una cadena de tiempo en formato "HH:MM:SS" a segundos transcurridos desde la medianoche.
      *
      * @param {string} timeStr - La cadena de tiempo (ej. "14:30:00").
      * @returns {number|null} El tiempo en segundos, o null si la entrada no es válida.
      */
+=======
+    // Parse "HH:MM:SS" to seconds since midnight
+>>>>>>> origin/update-ui-efigps
     timeToSeconds: function(timeStr) {
         if (!timeStr) return null;
         const parts = timeStr.split(':');
         return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + (parts[2] ? parseInt(parts[2]) : 0);
     },
 
+<<<<<<< HEAD
     /**
      * Convierte un total de segundos a una cadena de tiempo en formato "HH:MM:SS".
      *
      * @param {number} totalSeconds - El total de segundos desde la medianoche.
      * @returns {string} La cadena de tiempo formateada.
      */
+=======
+    // Format seconds to "HH:MM:SS"
+>>>>>>> origin/update-ui-efigps
     secondsToTime: function(totalSeconds) {
         let h = Math.floor(totalSeconds / 3600);
         let m = Math.floor((totalSeconds % 3600) / 60);
@@ -61,16 +84,20 @@ const RouteLogic = {
         return `${this.pad(h)}:${this.pad(m)}:${this.pad(s)}`;
     },
 
+<<<<<<< HEAD
     /**
      * Rellena un número con ceros a la izquierda para asegurar al menos dos dígitos.
      *
      * @param {number} num - El número a formatear.
      * @returns {string} El número como cadena con padding de ceros.
      */
+=======
+>>>>>>> origin/update-ui-efigps
     pad: function(num) {
         return num.toString().padStart(2, '0');
     },
 
+<<<<<<< HEAD
     /**
      * Obtiene la lista completa de puntos de coordenadas para un segmento entre dos paradas.
      * Incluye los puntos intermedios (trazado) si existen.
@@ -79,6 +106,9 @@ const RouteLogic = {
      * @param {Object} stopB - Objeto de la parada final. Debe contener lat, lng.
      * @returns {Array<Object>} Lista de objetos con propiedades {lat, lng} representando el camino completo.
      */
+=======
+    // Helper: Get full path points array [start, ...intermediates, end]
+>>>>>>> origin/update-ui-efigps
     getSegmentPoints: function(stopA, stopB) {
         const points = [{lat: stopA.lat, lng: stopA.lng}];
         if (stopA.pathNext && Array.isArray(stopA.pathNext)) {
@@ -88,12 +118,16 @@ const RouteLogic = {
         return points;
     },
 
+<<<<<<< HEAD
     /**
      * Calcula la distancia total acumulada de una ruta definida por una lista de puntos.
      *
      * @param {Array<Object>} points - Lista de puntos {lat, lng}.
      * @returns {number} La distancia total del camino en kilómetros.
      */
+=======
+    // Helper: Get total distance of a path
+>>>>>>> origin/update-ui-efigps
     getPathTotalDistance: function(points) {
         let dist = 0;
         for(let i=0; i<points.length-1; i++) {
@@ -102,6 +136,7 @@ const RouteLogic = {
         return dist;
     },
 
+<<<<<<< HEAD
     /**
      * Calcula y rellena los horarios intermedios faltantes en una lista de paradas.
      * Utiliza la distancia de los segmentos para interpolar el tiempo entre dos paradas con horario fijo.
@@ -112,12 +147,22 @@ const RouteLogic = {
     calculateIntermediateTimes: function(stops) {
         // Ordenar por algún índice si es necesario, asumiendo que las paradas están en orden
         // Encontrar índices de tiempos fijos
+=======
+    // Fill empty times in stops array
+    calculateIntermediateTimes: function(stops) {
+        // Sort by some index if needed, assuming stops are in order
+        // Find indices of fixed times
+>>>>>>> origin/update-ui-efigps
         let fixedIndices = [];
         stops.forEach((s, i) => {
             if (s.time) fixedIndices.push(i);
         });
 
+<<<<<<< HEAD
         if (fixedIndices.length < 2) return stops; // No hay suficientes datos
+=======
+        if (fixedIndices.length < 2) return stops; // Not enough data
+>>>>>>> origin/update-ui-efigps
 
         for (let k = 0; k < fixedIndices.length - 1; k++) {
             let startIdx = fixedIndices[k];
@@ -127,9 +172,15 @@ const RouteLogic = {
             let endSec = this.timeToSeconds(stops[endIdx].time);
             let timeDiff = endSec - startSec;
 
+<<<<<<< HEAD
             // Calcular distancia total de esta sección (suma de segmentos)
             let totalSectionDist = 0;
             let segmentDists = []; // Distancia de cada segmento PARADA-PARADA
+=======
+            // Calculate total distance of this section (sum of segments)
+            let totalSectionDist = 0;
+            let segmentDists = []; // Distance of each STOP-TO-STOP segment
+>>>>>>> origin/update-ui-efigps
 
             for (let i = startIdx; i < endIdx; i++) {
                 const points = this.getSegmentPoints(stops[i], stops[i+1]);
@@ -138,7 +189,11 @@ const RouteLogic = {
                 totalSectionDist += d;
             }
 
+<<<<<<< HEAD
             // Interpolar
+=======
+            // Interpolate
+>>>>>>> origin/update-ui-efigps
             let accumDist = 0;
             for (let i = startIdx + 1; i < endIdx; i++) {
                 accumDist += segmentDists[i - startIdx - 1];
@@ -150,6 +205,7 @@ const RouteLogic = {
         return stops;
     },
 
+<<<<<<< HEAD
     /**
      * Calcula la desviación (adelanto/atraso) de la posición actual respecto a la ruta planificada.
      * Proyecta la posición actual sobre el segmento de ruta más cercano para estimar el tiempo esperado.
@@ -163,6 +219,13 @@ const RouteLogic = {
     calculateDeviation: function(currentLat, currentLng, routeStops, currentTimeSec) {
         // 1. Encontrar el segmento activo.
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
+=======
+    // Main Deviation Calculation
+    // returns { deviationSec: number, deviationStr: string, nextStop: object, expectedTimeSec: number }
+    calculateDeviation: function(currentLat, currentLng, routeStops, currentTimeSec) {
+        // 1. Find the active segment.
+        // We search all detailed segments to find the closest point on the polyline network.
+>>>>>>> origin/update-ui-efigps
 
         let bestGlobalMatch = null;
         let minGlobalDist = Infinity;
@@ -173,7 +236,11 @@ const RouteLogic = {
 
             const points = this.getSegmentPoints(stopA, stopB);
 
+<<<<<<< HEAD
             // Calcular longitudes de sub-segmentos (A->p1, p1->p2, ...)
+=======
+            // Calculate lengths of sub-segments (A->p1, p1->p2, ...)
+>>>>>>> origin/update-ui-efigps
             let totalPathDist = 0;
             const subSegmentDists = [];
 
@@ -183,28 +250,47 @@ const RouteLogic = {
                 totalPathDist += d;
             }
 
+<<<<<<< HEAD
             // Encontrar proyección del usuario en este camino detallado
+=======
+            // Find user projection on this detailed path
+>>>>>>> origin/update-ui-efigps
             for(let j=0; j<points.length-1; j++) {
                 const A = points[j];
                 const B = points[j+1];
 
+<<<<<<< HEAD
                 // Proyectar Punto P sobre Segmento de Línea AB (sub-segmento)
+=======
+                // Project Point P onto Line Segment AB (sub-segment)
+>>>>>>> origin/update-ui-efigps
                 const p = this.projectPointOnSegment(
                     {x: currentLat, y: currentLng},
                     {x: A.lat, y: A.lng},
                     {x: B.lat, y: B.lng}
                 );
 
+<<<<<<< HEAD
                 // Distancia del usuario a la línea del segmento
+=======
+                // Distance from user to the segment line
+>>>>>>> origin/update-ui-efigps
                 const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
 
                 if (dist < minGlobalDist) {
                     minGlobalDist = dist;
 
+<<<<<<< HEAD
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;
                     for(let k=0; k<j; k++) distBefore += subSegmentDists[k];
                     distBefore += subSegmentDists[j] * p.ratio; // Añadir parcial del sub-segmento actual
+=======
+                    // Calculate how far along the STOP-TO-STOP path we are
+                    let distBefore = 0;
+                    for(let k=0; k<j; k++) distBefore += subSegmentDists[k];
+                    distBefore += subSegmentDists[j] * p.ratio; // Add partial of current sub-segment
+>>>>>>> origin/update-ui-efigps
 
                     const totalRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
 
@@ -218,7 +304,11 @@ const RouteLogic = {
 
         if (!bestGlobalMatch) return null;
 
+<<<<<<< HEAD
         // 2. Calcular Tiempo Esperado
+=======
+        // 2. Calculate Expected Time
+>>>>>>> origin/update-ui-efigps
         const startNode = routeStops[bestGlobalMatch.stopIndex];
         const endNode = routeStops[bestGlobalMatch.stopIndex+1];
 
@@ -227,10 +317,17 @@ const RouteLogic = {
 
         const expectedTime = t1 + (t2 - t1) * bestGlobalMatch.ratio;
 
+<<<<<<< HEAD
         // 3. Desviación
         const diff = expectedTime - currentTimeSec;
 
         // Formato
+=======
+        // 3. Deviation
+        const diff = expectedTime - currentTimeSec;
+
+        // Format
+>>>>>>> origin/update-ui-efigps
         const sign = diff >= 0 ? '+' : '-';
         const absDiff = Math.abs(diff);
         const m = Math.floor(absDiff / 60);
@@ -247,6 +344,7 @@ const RouteLogic = {
         };
     },
 
+<<<<<<< HEAD
     /**
      * Proyecta un punto P sobre un segmento de línea definido por los puntos A y B.
      * Utiliza proyección euclidiana simple (aproximación aceptable para segmentos cortos).
@@ -256,6 +354,10 @@ const RouteLogic = {
      * @param {Object} B - Punto final del segmento {x, y}.
      * @returns {Object} Objeto con el punto proyectado {x, y} y el ratio de progreso (0-1).
      */
+=======
+    // Helper: Project point P onto segment AB. Returns {x, y, ratio}
+    // Using simple Euclidean projection (flat earth approx is okay for short segments)
+>>>>>>> origin/update-ui-efigps
     projectPointOnSegment: function(P, A, B) {
         const dx = B.x - A.x;
         const dy = B.y - A.y;
@@ -263,7 +365,11 @@ const RouteLogic = {
 
         const t = ((P.x - A.x) * dx + (P.y - A.y) * dy) / (dx * dx + dy * dy);
 
+<<<<<<< HEAD
         // Limitar t al segmento [0, 1]
+=======
+        // Clamp t to segment [0, 1]
+>>>>>>> origin/update-ui-efigps
         const clampedT = Math.max(0, Math.min(1, t));
 
         return {
@@ -274,7 +380,11 @@ const RouteLogic = {
     }
 };
 
+<<<<<<< HEAD
 // Exportar para pruebas
+=======
+// Export for testing
+>>>>>>> origin/update-ui-efigps
 if (typeof module !== 'undefined') {
     module.exports = RouteLogic;
 }

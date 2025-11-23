@@ -40,8 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Editor
         editingRouteId: null,
         drawingMode: false,
-        drawingRouteIndex: -1
+        drawingRouteIndex: -1,
+
+        // Itinerario Activo (Modo PRO)
+        activeItinerary: null, // Lista completa de viajes
+        activeTripIndex: -1,   // Índice del viaje actual
+        isServiceFinished: false // Indica si terminó todo el diagrama
     };
+
+    // Exponer estado para depuración
+    window.appState = state;
 
     /**
      * Referencias a elementos del DOM utilizados en la aplicación.
@@ -53,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         arrivalTime: document.getElementById('arrival-time'),
         routeName: document.getElementById('route-name'),
         speed: document.getElementById('speed'),
+        lapDisplay: document.getElementById('lap-display'),
         screenContent: document.querySelector('.screen-content'),
         navMapContainer: document.getElementById('nav-map-container'),
 
@@ -70,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Editor
         modal: document.getElementById('editor-modal'),
-        closeModal: document.querySelector('.close-modal'),
+        closeModal: document.getElementById('close-editor-modal'),
         stopsList: document.getElementById('stops-list'),
         btnCalc: document.getElementById('btn-calc-times'),
         btnSave: document.getElementById('btn-save-route'),
@@ -94,7 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lineStartTime: document.getElementById('line-start-time'),
         lineEndTime: document.getElementById('line-end-time'),
         lineTurns: document.getElementById('line-turns'),
-        lineRest: document.getElementById('line-rest'),
+        lineRestIda: document.getElementById('line-rest-ida'),
+        lineRestVuelta: document.getElementById('line-rest-vuelta'),
         btnSaveLine: document.getElementById('btn-save-line'),
         btnCancelLine: document.getElementById('btn-cancel-line'),
         btnDeleteLine: document.getElementById('btn-delete-line'),
@@ -187,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
-            state.drawingMode = false; // Asegurar salir modo dibujo
+            stopDrawing(); // Asegurar salir modo dibujo y limpiar estado UI
             MapLogic.renderEditorRoute(tempStops); // Redibujar limpio
         });
         els.btnCalc.addEventListener('click', calculateEditorTimes);
@@ -262,8 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (direction === 'up') {
                 // Siguiente parada (Incrementar índice)
                 state.manualStopIndex++;
+
+                // Verificar si intentamos pasar del final (Transición de Tramo)
                 if (state.manualStopIndex >= state.currentRoute.stops.length) {
                     state.manualStopIndex = state.currentRoute.stops.length - 1;
+
+                    if (state.activeItinerary) {
+                        checkEndOfLegTransition();
+                        return; // Salir para evitar actualizar desviación con el índice viejo
+                    }
                 }
             } else {
                 // Parada anterior (Decrementar índice)
@@ -365,8 +382,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 MapLogic.updateUserPosition(lat, lng);
             }
 
+            // Si no hay ruta cargada, no calculamos desviación ni lógica de tramo
+            if (!state.currentRoute) return;
+
             // Calcular Desviación
             let result = null;
+
+            // Detección de Fin de Tramo (Punta de Línea)
+            const isLastStop = state.manualMode && state.manualStopIndex === state.currentRoute.stops.length - 1;
 
             if (state.manualMode) {
                 // Cálculo de Desviación Manual
@@ -473,6 +496,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.mapVisible) {
                 MapLogic.updateStopMarkers(result.nextStop);
             }
+
+            // Verificar si estamos en Punta de Línea (Inicio de recorrido y dentro de 50m)
+            checkTerminalStatus(lat, lng);
         }
     } catch (e) {
         console.error("Error de Desviación:", e);
@@ -653,7 +679,8 @@ document.addEventListener('DOMContentLoaded', () => {
             startTime: line.start,
             endTime: line.end,
             turns: line.turns,
-            restMinutes: line.rest
+            restIda: line.restIda !== undefined ? line.restIda : (line.rest || 0),
+            restVuelta: line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0)
         }, rIda, rVuelta);
 
         if (!trips || trips.length === 0) {
@@ -676,20 +703,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="trip-leg">Tramo ${trip.legIndex}</div>
             `;
             div.onclick = () => {
-                startTrip(trip, line.name);
+                startItinerary(trips, trips.indexOf(trip), line.name);
             };
             els.tripsList.appendChild(div);
         });
     };
 
-    function startTrip(trip, lineName) {
+    /**
+     * Inicia un itinerario completo (o salta a un tramo específico).
+     * @param {Array} trips - Lista completa de viajes calculados.
+     * @param {number} startIndex - Índice del viaje inicial seleccionado.
+     * @param {string} lineName - Nombre base de la línea.
+     */
+    function startItinerary(trips, startIndex, lineName) {
+        state.activeItinerary = trips;
+        state.activeTripIndex = startIndex;
+        state.isServiceFinished = false;
+
+        loadTripFromItinerary(lineName);
+        els.proModal.classList.add('hidden');
+    }
+
+    function loadTripFromItinerary(lineName) {
+        if (!state.activeItinerary || state.activeTripIndex < 0 || state.activeTripIndex >= state.activeItinerary.length) {
+             finishService();
+             return;
+        }
+
+        const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {
             id: trip.id,
             name: `${lineName} (${trip.direction})`,
             stops: trip.stops
         };
+
+        // Cargar ruta
         selectRoute(routeObj);
-        els.proModal.classList.add('hidden');
+
+        // Resetear visualización de servicio finalizado por si acaso
+        state.isServiceFinished = false;
+        els.deviation.classList.remove('service-finished');
+
+        // Actualizar contador de vueltas (VH)
+        // Cada vuelta son 2 tramos (Ida + Vuelta).
+        // Index 0, 1 -> Vuelta 1. Index 2, 3 -> Vuelta 2.
+        const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
+        els.lapDisplay.textContent = `VH ${lapNumber}`;
+    }
+
+    function finishService() {
+        state.currentRoute = null;
+        state.isServiceFinished = true;
+        state.activeItinerary = null;
+        state.activeTripIndex = -1;
+
+        els.routeName.textContent = "SERVICIO FINALIZADO";
+        els.deviation.textContent = "Servicio Finalizado";
+        els.deviation.classList.remove('late', 'early', 'neutral');
+        els.deviation.classList.add('service-finished'); // Clase para estilo especial
+        els.nextStop.textContent = "---";
+        els.arrivalTime.textContent = "--:--";
+
+        // Limpiar mapa
+        if (state.mapVisible) MapLogic.initNavMap('nav-map');
     }
 
     window.editLine = function(id) {
@@ -723,7 +799,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = line.start;
             els.lineEndTime.value = line.end;
             els.lineTurns.value = line.turns;
-            els.lineRest.value = line.rest;
+            els.lineRestIda.value = line.restIda !== undefined ? line.restIda : (line.rest || 0);
+            els.lineRestVuelta.value = line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0);
             els.btnDeleteLine.classList.remove('hidden');
         } else {
             editingLineId = null;
@@ -733,7 +810,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = '';
             els.lineEndTime.value = '';
             els.lineTurns.value = '';
-            els.lineRest.value = 0;
+            els.lineRestIda.value = 0;
+            els.lineRestVuelta.value = 0;
             els.btnDeleteLine.classList.add('hidden');
         }
     }
@@ -745,7 +823,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = els.lineStartTime.value;
         const end = els.lineEndTime.value;
         const turns = els.lineTurns.value;
-        const rest = els.lineRest.value;
+        const restIda = els.lineRestIda.value;
+        const restVuelta = els.lineRestVuelta.value;
 
         if (!name || !ida || !vuelta || !start || !end || !turns) {
             alert("Complete todos los campos obligatorios");
@@ -760,7 +839,8 @@ document.addEventListener('DOMContentLoaded', () => {
             start,
             end,
             turns: parseFloat(turns),
-            rest: parseInt(rest) || 0
+            restIda: parseInt(restIda) || 0,
+            restVuelta: parseInt(restVuelta) || 0
         };
 
         let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
@@ -1206,6 +1286,75 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
         } else {
             els.navMapContainer.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Realiza la transición inmediata al siguiente tramo si existe.
+     */
+    function checkEndOfLegTransition() {
+        const nextTripIndex = state.activeTripIndex + 1;
+
+        if (nextTripIndex >= state.activeItinerary.length) {
+            // Fin de servicio
+            finishService();
+            return;
+        }
+
+        // Transición Inmediata: Cargar siguiente tramo
+        state.activeTripIndex++;
+        const nextTrip = state.activeItinerary[state.activeTripIndex];
+
+        // Resetear a inicio para el nuevo tramo
+        state.manualStopIndex = 0;
+
+        // Cargar ruta
+        // Usamos el nombre original si está disponible (hack: obtener de trip actual o anterior)
+        const currentName = els.routeName.textContent;
+        const baseName = currentName.split('(')[0].trim();
+
+        loadTripFromItinerary(baseName);
+
+        // Forzar actualización inmediata para mostrar el nuevo desvío (espera)
+        updateClock();
+    }
+
+    /**
+     * Verifica si se debe mostrar el mensaje "Punta de Línea" basado en la ubicación.
+     * @param {number} lat - Latitud actual.
+     * @param {number} lng - Longitud actual.
+     */
+    function checkTerminalStatus(lat, lng) {
+        if (!state.currentRoute || state.currentRoute.stops.length === 0) return;
+
+        // Verificar si estamos al inicio del recorrido (ej. índice 0 o 1)
+        // O simplemente cerca de la primera parada.
+        const startStop = state.currentRoute.stops[0];
+        const dist = RouteLogic.getDistance(lat, lng, startStop.lat, startStop.lng); // km
+        const distMeters = dist * 1000;
+
+        if (distMeters <= 50) {
+            // Dentro del radio de 50m de la punta
+            // Inyectar etiqueta "Punta de Línea" si no está ya
+            const currentHTML = els.deviation.innerHTML;
+            if (!currentHTML.includes('Punta de Línea')) {
+                 const val = els.deviation.textContent;
+                 const statusClass = els.deviation.classList.contains('early') ? 'early' : 'late';
+
+                 els.deviation.innerHTML = `
+                    <div class="terminal-box">
+                        <div class="terminal-label">Punta de Línea</div>
+                        <div class="terminal-value ${statusClass}">${val}</div>
+                    </div>
+                 `;
+            }
+        } else {
+            // Fuera del radio, limpiar etiqueta si existe
+            // El updateDeviation sobrescribe el textContent, eliminando el HTML extra,
+            // así que si NO hacemos nada aquí, se limpiará solo en el próximo tick de updateDeviation
+            // (porque updateDeviation hace els.deviation.textContent = ...).
+            // PERO, checkTerminalStatus se llama DESPUÉS de updateDeviation en el mismo tick.
+            // Así que si no inyectamos, queda limpio. Correcto.
         }
     }
 

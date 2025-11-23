@@ -1,19 +1,36 @@
-// Map Logic using Leaflet
-
+/**
+ * Lógica de Mapas utilizando la librería Leaflet.
+ * Gestiona la inicialización de mapas, renderizado de rutas y marcadores tanto para el editor como para la navegación.
+ */
 const MapLogic = {
+    /** @type {L.Map|null} Referencia al mapa del editor */
     editorMap: null,
+    /** @type {L.Map|null} Referencia al mapa de navegación */
     navMap: null,
-    editorMarkers: [], // Only for STOPS
-    editorIntermediateMarkers: [], // Small dots for path points
+    /** @type {Array<L.Marker>} Lista de marcadores de paradas en el editor */
+    editorMarkers: [],
+    /** @type {Array<L.CircleMarker>} Lista de marcadores intermedios (puntos de trazado) en el editor */
+    editorIntermediateMarkers: [],
+    /** @type {L.Polyline|null} Polilínea de la ruta en el editor */
     editorPolyline: null,
+    /** @type {L.Polyline|null} Polilínea de la ruta en navegación */
     navPolyline: null,
+    /** @type {L.CircleMarker|null} Marcador de la posición del usuario en navegación */
     navUserMarker: null,
-    navMarkers: [], // Stores { marker: L.Layer, stopName: string }
+    /** @type {Array<Object>} Lista de marcadores de navegación con metadatos { marker, stopName } */
+    navMarkers: [],
 
+    /**
+     * Inicializa el mapa del editor en el elemento DOM especificado.
+     * Configura la vista inicial y el manejo de eventos de clic.
+     *
+     * @param {string} elementId - El ID del elemento HTML contenedor del mapa.
+     * @param {Function} onClickCallback - Función a llamar cuando se hace clic en el mapa. Recibe un objeto latlng.
+     */
     initEditorMap: function(elementId, onClickCallback) {
-        if (this.editorMap) return; // Already init
+        if (this.editorMap) return; // Ya inicializado
 
-        this.editorMap = L.map(elementId).setView([-34.6037, -58.3816], 13); // Buenos Aires default
+        this.editorMap = L.map(elementId).setView([-34.6037, -58.3816], 13); // Default Buenos Aires
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(this.editorMap);
@@ -23,20 +40,28 @@ const MapLogic = {
         });
     },
 
+    /**
+     * Inicializa el mapa de navegación (visualización para el conductor).
+     * Configura un mapa con interfaz mínima.
+     *
+     * @param {string} elementId - El ID del elemento HTML contenedor del mapa.
+     */
     initNavMap: function(elementId) {
         if (this.navMap) return;
 
         this.navMap = L.map(elementId, {
-            zoomControl: false, // Minimal UI
+            zoomControl: false, // UI Mínima
             attributionControl: false
         }).setView([-34.6037, -58.3816], 15);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.navMap);
     },
 
-    // Editor Methods
+    // Métodos del Editor
 
-    // Clears all editor layers
+    /**
+     * Limpia todas las capas (marcadores y polilíneas) del mapa del editor.
+     */
     clearEditor: function() {
         this.editorMarkers.forEach(m => this.editorMap.removeLayer(m));
         this.editorMarkers = [];
@@ -47,11 +72,17 @@ const MapLogic = {
         this.editorPolyline = null;
     },
 
-    // Render the full route (stops + paths) on the editor map
+    /**
+     * Renderiza la ruta completa (paradas + trazados) en el mapa del editor.
+     * Dibuja marcadores para paradas, puntos para intermedios y una polilínea conectando todo.
+     *
+     * @param {Array<Object>} stops - Lista de objetos de parada.
+     * @param {Function} [onStopDragCallback] - Callback opcional para manejar el evento de arrastrar una parada.
+     */
     renderEditorRoute: function(stops, onStopDragCallback) {
         if (!this.editorMap) return;
 
-        // Clear existing visual elements first
+        // Limpiar elementos visuales existentes primero
         this.clearEditor();
 
         if (!stops || stops.length === 0) return;
@@ -59,9 +90,9 @@ const MapLogic = {
         const fullPathLatLngs = [];
 
         stops.forEach((stop, i) => {
-            // 1. Add Marker for the Stop
+            // 1. Añadir Marcador para la Parada
             const marker = L.marker([stop.lat, stop.lng], { draggable: true }).addTo(this.editorMap);
-            marker.bindPopup(`<strong>${stop.name}</strong>`); // Removed .openPopup() to prevent auto-centering
+            marker.bindPopup(`<strong>${stop.name}</strong>`); // Se quitó .openPopup() para evitar centrado automático
 
             marker.on('dragend', function(event) {
                 const marker = event.target;
@@ -73,15 +104,15 @@ const MapLogic = {
 
             this.editorMarkers.push(marker);
 
-            // 2. Collect Path Points
+            // 2. Recolectar Puntos del Camino
             fullPathLatLngs.push([stop.lat, stop.lng]);
 
-            // 3. Add Intermediate Points if they exist
+            // 3. Añadir Puntos Intermedios si existen
             if (stop.pathNext && Array.isArray(stop.pathNext)) {
                 stop.pathNext.forEach(pt => {
                     fullPathLatLngs.push([pt.lat, pt.lng]);
 
-                    // Add small dot for intermediate point
+                    // Añadir punto pequeño para intermedio
                     const dot = L.circleMarker([pt.lat, pt.lng], {
                         radius: 3,
                         color: '#666',
@@ -94,32 +125,45 @@ const MapLogic = {
             }
         });
 
-        // Draw Polyline
+        // Dibujar Polilínea
         if (fullPathLatLngs.length > 1) {
             this.editorPolyline = L.polyline(fullPathLatLngs, {color: 'blue', weight: 3}).addTo(this.editorMap);
         }
     },
 
-    // Legacy method for compatibility if needed, but refactored to use renderEditorRoute in app.js
+    /**
+     * Método legado para compatibilidad. Se recomienda usar renderEditorRoute.
+     * Añade un marcador simple al editor.
+     *
+     * @deprecated
+     * @param {number} lat - Latitud.
+     * @param {number} lng - Longitud.
+     * @param {string} label - Etiqueta para el popup.
+     */
     addEditorMarker: function(lat, lng, label) {
-        // This method is deprecated in favor of renderEditorRoute
-        // keeping it minimal just in case
         const marker = L.marker([lat, lng]).addTo(this.editorMap);
         if(label) marker.bindPopup(label).openPopup();
         this.editorMarkers.push(marker);
     },
 
 
-    // Nav Methods
+    // Métodos de Navegación
+
+    /**
+     * Carga y visualiza una ruta en el mapa de navegación.
+     * Dibuja la polilínea roja y marcadores azules para las paradas.
+     *
+     * @param {Array<Object>} stops - Lista de paradas de la ruta.
+     */
     loadRouteOnNavMap: function(stops) {
         if (!this.navMap) return;
-        // Clear prev polyline
+        // Limpiar polilínea anterior
         if (this.navPolyline) this.navMap.removeLayer(this.navPolyline);
-        // Clear prev markers
+        // Limpiar marcadores anteriores
         this.navMarkers.forEach(obj => this.navMap.removeLayer(obj.marker));
         this.navMarkers = [];
 
-        // Build detailed polyline
+        // Construir polilínea detallada
         const latlngs = [];
         stops.forEach(stop => {
             latlngs.push([stop.lat, stop.lng]);
@@ -130,7 +174,7 @@ const MapLogic = {
 
         this.navPolyline = L.polyline(latlngs, {color: 'red', weight: 5}).addTo(this.navMap);
 
-        // Add markers for stops ONLY (skip intermediates)
+        // Añadir marcadores SOLO para paradas (saltar intermedios)
         stops.forEach((stop, index) => {
              const marker = L.circleMarker([stop.lat, stop.lng], {
                  color: 'blue',
@@ -149,18 +193,24 @@ const MapLogic = {
         }
     },
 
+    /**
+     * Actualiza el estilo de los marcadores de parada para indicar cuál es la siguiente.
+     * La siguiente parada se marca en verde, las demás en azul.
+     *
+     * @param {string} nextStopName - El nombre de la siguiente parada objetivo.
+     */
     updateStopMarkers: function(nextStopName) {
         this.navMarkers.forEach(obj => {
             if (obj.stopName === nextStopName) {
-                // Set Green
+                // Poner Verde
                 obj.marker.setStyle({
                     color: 'green',
                     fillColor: '#00ff00'
                 });
-                // Maybe bring to front?
+                // Traer al frente
                 obj.marker.bringToFront();
             } else {
-                // Set Blue
+                // Poner Azul
                 obj.marker.setStyle({
                     color: 'blue',
                     fillColor: '#3388ff'
@@ -169,6 +219,13 @@ const MapLogic = {
         });
     },
 
+    /**
+     * Actualiza la posición del usuario en el mapa de navegación.
+     * Mueve el marcador del usuario y centra el mapa en la nueva posición.
+     *
+     * @param {number} lat - Latitud actual.
+     * @param {number} lng - Longitud actual.
+     */
     updateUserPosition: function(lat, lng) {
         if (!this.navMap) return;
 
@@ -183,6 +240,6 @@ const MapLogic = {
         } else {
             this.navUserMarker.setLatLng([lat, lng]);
         }
-        this.navMap.setView([lat, lng]); // Follow user
+        this.navMap.setView([lat, lng]); // Seguir usuario
     }
 };

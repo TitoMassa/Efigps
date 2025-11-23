@@ -1,16 +1,31 @@
+/* ==========================================================================
+   Configuración Base (Variables y Globales)
+   ========================================================================== */
+
 :root {
+    /* Colores del dispositivo */
     --device-bg: #1a1a1a;
     --device-border: #333;
+
+    /* Colores de la pantalla */
     --screen-bg: #f0f2f5;
     --screen-text: #222;
+
+    /* Colores de resaltado */
     --highlight-green: #76c900;
     --highlight-red: #d00000;
     --highlight-yellow: #f4d03f;
+
+    /* Colores de botones e interacción */
     --btn-bg: #2a2a2a;
     --btn-hover: #3a3a3a;
     --btn-text: #eee;
+
+    /* Fuentes */
     --font-main: 'Courier New', Courier, monospace;
-    --font-digital: sans-serif; /* Could use a real digital font if available, but sans-serif is the fallback */
+    --font-digital: sans-serif; /* Podría usar una fuente digital real si estuviera disponible */
+
+    /* Modal y Overlays */
     --modal-bg: #ffffff;
     --modal-overlay: rgba(0, 0, 0, 0.7);
 }
@@ -36,7 +51,10 @@ body {
     max-width: 900px;
 }
 
-/* Device Shell */
+/* ==========================================================================
+   Carcasa del Dispositivo
+   ========================================================================== */
+
 .device-interface {
     background: linear-gradient(145deg, #1e1e1e, #141414);
     border-radius: 24px;
@@ -53,7 +71,7 @@ body {
     position: relative;
 }
 
-/* Add a subtle texture or finish to the device */
+/* Textura o acabado sutil del dispositivo */
 .device-interface::before {
     content: '';
     position: absolute;
@@ -64,7 +82,10 @@ body {
     z-index: 5;
 }
 
-/* Screen Section */
+/* ==========================================================================
+   Pantalla del Dispositivo
+   ========================================================================== */
+
 .screen-frame {
     background-color: #000;
     padding: 12px;
@@ -73,7 +94,7 @@ body {
     aspect-ratio: 4/3;
     display: flex;
     box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-    z-index: 6; /* Above the device overlay */
+    z-index: 6; /* Por encima del overlay del dispositivo */
 }
 
 .screen-content {
@@ -90,7 +111,7 @@ body {
     border-radius: 2px;
 }
 
-/* High Contrast Mode */
+/* Modo Alto Contraste */
 .screen-content.high-contrast {
     background-color: #000;
     color: #fff;
@@ -100,7 +121,7 @@ body {
     border-bottom: 1px solid #fff;
 }
 
-/* Screen Internals */
+/* Elementos Internos de la Pantalla */
 .status-bar {
     display: flex;
     justify-content: space-between;
@@ -136,7 +157,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 72px; /* Large deviation */
+    font-size: 72px; /* Desviación grande */
     font-family: var(--font-digital);
     font-weight: 700;
     border-top: 2px solid #ccc;
@@ -151,7 +172,7 @@ body {
     border-color: #555;
 }
 
-/* Deviation Colors */
+/* Colores de Desviación */
 #deviation-display.late { color: var(--highlight-red); }
 #deviation-display.early { color: #009900; }
 .screen-content.high-contrast #deviation-display.late { color: #ff4444; }
@@ -182,7 +203,7 @@ body {
     font-weight: bold;
 }
 
-/* Bottom Bar */
+/* Barra Inferior (Botones Físicos) */
 .bottom-bar {
     display: flex;
     justify-content: space-between;
@@ -225,7 +246,7 @@ body {
 
 #btn-contrast { color: #fff; font-weight: bold; }
 
-/* Map Overlay in Screen */
+/* Mapa de Navegación en Pantalla */
 #nav-map-container {
     position: absolute;
     top: 0;
@@ -237,7 +258,10 @@ body {
 #nav-map { width: 100%; height: 100%; }
 
 
-/* Sim Controls */
+/* ==========================================================================
+   Controles de Simulación
+   ========================================================================== */
+
 .sim-controls {
     display: flex;
     flex-direction: column;
@@ -277,7 +301,7 @@ body {
     background: #0056b3;
 }
 
-/* Manual Control Switch */
+/* Interruptor de Control Manual */
 .manual-control-container {
     margin-top: 10px;
     padding-top: 15px;
@@ -328,7 +352,10 @@ input:focus + .slider { box-shadow: 0 0 1px var(--highlight-yellow); }
 input:checked + .slider:before { transform: translateX(24px); }
 
 
-/* Editor Modal */
+/* ==========================================================================
+   Modal del Editor
+   ========================================================================== */
+
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -372,7 +399,7 @@ input:checked + .slider:before { transform: translateX(24px); }
     border-bottom: 1px solid #eee;
 }
 
-/* Vertical Editor Layout */
+/* Layout Vertical del Editor */
 .editor-layout {
     display: flex;
     flex-direction: column;
@@ -382,7 +409,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 
 .map-column {
     width: 100%;
-    flex: 0 0 35%; /* Use percentage */
+    flex: 0 0 35%; /* Usa porcentaje */
     border-bottom: 1px solid #ddd;
     display: flex;
     flex-direction: column;
@@ -429,7 +456,7 @@ input:checked + .slider:before { transform: translateX(24px); }
     outline: none;
 }
 
-/* Stop List */
+/* Lista de Paradas */
 #stops-list {
     flex-grow: 1;
     border: 1px solid #eee;
@@ -473,7 +500,7 @@ input:checked + .slider:before { transform: translateX(24px); }
     color: #333;
 }
 
-/* Actions */
+/* Acciones del Editor */
 .editor-actions {
     display: flex;
     gap: 10px;
@@ -499,7 +526,80 @@ input:checked + .slider:before { transform: translateX(24px); }
 #btn-save-route:hover { background: #218838; box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3); }
 #btn-clear-route:hover { background: #c82333; box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3); }
 
-/* Saved Routes */
+
+/* ==========================================================================
+   Modo Profesional
+   ========================================================================== */
+.item-list {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.item-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.item-card h4 { margin: 0 0 5px 0; color: #333; }
+.item-card p { margin: 0; font-size: 12px; color: #777; }
+
+.diagram-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.trips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.trip-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+.trip-card:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
+    transform: translateY(-2px);
+}
+.trip-card .trip-dir { font-weight: bold; color: #007bff; margin-bottom: 4px; }
+.trip-card .trip-time { font-size: 14px; color: #333; }
+.trip-card .trip-leg { font-size: 11px; color: #999; margin-top: 4px; }
+
+.btn-primary { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+.btn-secondary { background: #6c757d; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; }
+.btn-danger { background: #dc3545; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; }
+.btn-small { padding: 5px 10px; font-size: 12px; border-radius: 4px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+
+.actions { display: flex; gap: 10px; margin-top: 20px; }
+.actions button { flex: 1; }
+
+
+/* Rutas Guardadas */
 #saved-routes-list {
     list-style: none;
     padding: 0;
@@ -531,11 +631,11 @@ input:checked + .slider:before { transform: translateX(24px); }
 .route-actions button.btn-danger:hover { background: #fff5f5; border-color: #ffc9c9; color: #dc3545; }
 
 
-/* Mobile Optimization */
+/* Optimización Móvil */
 @media (max-width: 600px) {
     .screen-frame { height: 250px; }
     .map-column { flex: 0 0 300px; }
 }
 
-/* Utility */
+/* Utilidad */
 .hidden { display: none !important; }

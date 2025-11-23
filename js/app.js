@@ -1,28 +1,51 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // State
+    /**
+     * @typedef {Object} AppState
+     * @property {Object|null} currentRoute - La ruta seleccionada actualmente { name, stops: [] }.
+     * @property {boolean} isSimulating - Indica si la simulación está activa.
+     * @property {number} simProgress - Progreso de la simulación (0 a 100).
+     * @property {number|null} simInterval - ID del intervalo de la simulación.
+     * @property {boolean} highContrast - Estado del modo de alto contraste.
+     * @property {boolean} mapVisible - Visibilidad del mapa de navegación.
+     * @property {number} speed - Velocidad actual en km/h.
+     * @property {Object|null} lastGpsPosition - Última posición GPS conocida { lat, lng, speed }.
+     * @property {number|null} gpsWatchId - ID del watcher de geolocalización.
+     * @property {boolean} manualMode - Modo de selección manual de parada activado.
+     * @property {number} manualStopIndex - Índice de la parada seleccionada manualmente.
+     * @property {number|null} editingRouteId - ID de la ruta que se está editando actualmente.
+     * @property {boolean} drawingMode - Indica si se está dibujando un trazado en el editor.
+     * @property {number} drawingRouteIndex - Índice de la parada desde la que se está dibujando.
+     */
+
+    /**
+     * Estado global de la aplicación.
+     * @type {AppState}
+     */
     const state = {
-        currentRoute: null, // { name: '', stops: [] }
+        currentRoute: null,
         isSimulating: false,
-        simProgress: 0, // 0 to 100
+        simProgress: 0,
         simInterval: null,
         highContrast: false,
         mapVisible: false,
         speed: 0,
-        lastGpsPosition: null, // { lat, lng, speed }
+        lastGpsPosition: null,
         gpsWatchId: null,
 
         // Stop Selection Mode
         manualMode: false,
-        manualStopIndex: 0, // Index of the manually selected next stop
+        manualStopIndex: 0,
 
         // Editor
         editingRouteId: null,
         drawingMode: false,
-        drawingRouteIndex: -1 // The index of the STOP we are drawing FROM (to next stop)
+        drawingRouteIndex: -1
     };
 
-    // DOM Elements
+    /**
+     * Referencias a elementos del DOM utilizados en la aplicación.
+     */
     const els = {
         clock: document.getElementById('clock'),
         deviation: document.getElementById('deviation-display'),
@@ -33,20 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
         screenContent: document.querySelector('.screen-content'),
         navMapContainer: document.getElementById('nav-map-container'),
 
-        // Buttons
+        // Botones
         btnMap: document.getElementById('btn-map-toggle'),
         btnContrast: document.getElementById('btn-contrast'),
         btnRouteEditor: document.getElementById('btn-route-editor'),
+        btnProMode: document.getElementById('btn-pro-mode'),
         btnSimStart: document.getElementById('btn-start-sim'),
         btnUp: document.getElementById('btn-up'),
         btnDown: document.getElementById('btn-down'),
 
-        // Controls (moved outside)
+        // Controles
         modeSwitch: document.getElementById('mode-switch-input'), // Checkbox
 
         // Editor
         modal: document.getElementById('editor-modal'),
-        closeModal: document.querySelector('.close-modal'),
+        closeModal: document.getElementById('close-editor-modal'),
         stopsList: document.getElementById('stops-list'),
         btnCalc: document.getElementById('btn-calc-times'),
         btnSave: document.getElementById('btn-save-route'),
@@ -54,33 +78,68 @@ document.addEventListener('DOMContentLoaded', () => {
         routeNameInput: document.getElementById('route-name-input'),
         savedList: document.getElementById('saved-routes-list'),
 
-        // Sim
+        // PRO Mode Elements
+        proModal: document.getElementById('pro-modal'),
+        closeProModal: document.getElementById('close-pro-modal'),
+        proLinesView: document.getElementById('pro-lines-view'),
+        proLineEditor: document.getElementById('pro-line-editor'),
+        proDriverView: document.getElementById('pro-driver-view'),
+        linesList: document.getElementById('lines-list'),
+        btnCreateLine: document.getElementById('btn-create-line'),
+
+        // Line Editor Inputs
+        lineNameInput: document.getElementById('line-name-input'),
+        selectRouteIda: document.getElementById('select-route-ida'),
+        selectRouteVuelta: document.getElementById('select-route-vuelta'),
+        lineStartTime: document.getElementById('line-start-time'),
+        lineEndTime: document.getElementById('line-end-time'),
+        lineTurns: document.getElementById('line-turns'),
+        lineRestIda: document.getElementById('line-rest-ida'),
+        lineRestVuelta: document.getElementById('line-rest-vuelta'),
+        btnSaveLine: document.getElementById('btn-save-line'),
+        btnCancelLine: document.getElementById('btn-cancel-line'),
+        btnDeleteLine: document.getElementById('btn-delete-line'),
+
+        // Driver View
+        driverLineTitle: document.getElementById('driver-line-title'),
+        tripsList: document.getElementById('trips-list'),
+        btnBackLines: document.getElementById('btn-back-lines'),
+
+        // Simulación
         simSlider: document.getElementById('sim-slider'),
         simStatus: document.getElementById('sim-status')
     };
 
-    // --- Initialization ---
+    // --- Inicialización ---
 
+    /**
+     * Inicializa la aplicación.
+     * Configura el reloj, carga rutas guardadas, inicia el GPS y configura eventos.
+     */
     function init() {
-        // Clock loop
+        // Bucle del reloj
         setInterval(updateClock, 1000);
 
         // Init Maps
-        // (MapLogic init is called when modal opens or map is toggled to avoid layout issues)
+        // (MapLogic init se llama cuando se abre el modal o se alterna el mapa para evitar problemas de layout)
 
-        // Load Saved Routes
+        // Cargar Rutas Guardadas
         loadSavedRoutes();
 
-        // Start GPS
+        // Iniciar GPS
         startGpsTracking();
 
-        // Events
+        // Eventos
         setupEventListeners();
     }
 
+    /**
+     * Inicia el rastreo de ubicación GPS del navegador.
+     * Actualiza `state.lastGpsPosition` y la velocidad en pantalla.
+     */
     function startGpsTracking() {
         if (!navigator.geolocation) {
-            console.error("Geolocation not supported");
+            console.error("Geolocalización no soportada");
             return;
         }
 
@@ -92,14 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     speed: pos.coords.speed // m/s
                 };
 
-                // Update Speed Display (convert m/s to km/h)
+                // Actualizar Visualización de Velocidad (convertir m/s a km/h)
                 if (pos.coords.speed !== null) {
                     state.speed = (pos.coords.speed * 3.6).toFixed(0);
                     els.speed.textContent = `${state.speed} km/h`;
                 }
             },
             (err) => {
-                console.error("GPS Error:", err);
+                console.error("Error de GPS:", err);
             },
             {
                 enableHighAccuracy: true,
@@ -109,49 +168,71 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    /**
+     * Configura los listeners de eventos para botones y elementos de la interfaz.
+     */
     function setupEventListeners() {
-        // Device Buttons
+        // Botones del Dispositivo
         els.btnContrast.addEventListener('click', toggleHighContrast);
         els.btnMap.addEventListener('click', toggleNavMap);
-        els.btnRouteEditor.addEventListener('click', openEditor); // Using "User" icon for Editor as per plan
+        els.btnRouteEditor.addEventListener('click', openEditor);
+        if (els.btnProMode) els.btnProMode.addEventListener('click', openProMode);
 
-        // Mode Switch
+        // Cambio de Modo
         if (els.modeSwitch) {
              els.modeSwitch.addEventListener('change', (e) => {
                  toggleStopSelectionMode(e.target.checked);
              });
         }
 
-        // Editor
+        // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
-            state.drawingMode = false; // Ensure we exit drawing mode
-            MapLogic.renderEditorRoute(tempStops); // Redraw clean
+            stopDrawing(); // Asegurar salir modo dibujo y limpiar estado UI
+            MapLogic.renderEditorRoute(tempStops); // Redibujar limpio
         });
         els.btnCalc.addEventListener('click', calculateEditorTimes);
         els.btnSave.addEventListener('click', saveRoute);
         els.btnClear.addEventListener('click', clearEditor);
 
-        // Simulation
+        // PRO Mode Events
+        els.closeProModal.addEventListener('click', () => els.proModal.classList.add('hidden'));
+        els.btnCreateLine.addEventListener('click', () => openLineEditor(null));
+        els.btnSaveLine.addEventListener('click', saveLine);
+        els.btnCancelLine.addEventListener('click', () => {
+            els.proLineEditor.classList.add('hidden');
+            els.proLinesView.classList.remove('hidden');
+        });
+        els.btnDeleteLine.addEventListener('click', deleteLine);
+        els.btnBackLines.addEventListener('click', () => {
+            els.proDriverView.classList.add('hidden');
+            els.proLinesView.classList.remove('hidden');
+        });
+
+        // Simulación
         els.btnSimStart.addEventListener('click', toggleSimulation);
         els.simSlider.addEventListener('input', (e) => {
             state.simProgress = parseFloat(e.target.value);
             updateSimulationLoop();
         });
 
-        // Physical Keys Binding (Up/Down)
+        // Vinculación Teclas Físicas (Arriba/Abajo)
         els.btnUp.addEventListener('click', () => handleArrowKey('up'));
         els.btnDown.addEventListener('click', () => handleArrowKey('down'));
     }
 
+    /**
+     * Alterna el modo de selección de parada entre Automático y Manual.
+     *
+     * @param {boolean} isManual - True para modo manual, False para automático.
+     */
     function toggleStopSelectionMode(isManual) {
         state.manualMode = isManual;
 
         if (state.manualMode) {
-            // Init manual index if needed, possibly to current auto index?
-            // Ideally we find the closest next stop and set it there
+            // Inicializar índice manual si es necesario, posiblemente al índice automático actual
             if (state.currentRoute) {
-                // Find what the auto logic thinks is next
+                // Encontrar lo que la lógica automática piensa que es siguiente
                 const now = new Date();
                 const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
                 const pos = getCurrentPosition();
@@ -167,38 +248,46 @@ document.addEventListener('DOMContentLoaded', () => {
         updateClock();
     }
 
+    /**
+     * Maneja las pulsaciones de las teclas de flecha (físicas o virtuales).
+     * En modo manual, cambia la parada seleccionada.
+     *
+     * @param {string} direction - 'up' para siguiente parada, 'down' para anterior.
+     */
     function handleArrowKey(direction) {
-        // User says: Up = +1 Stop, Down = -1 Stop
-        // Previous implementation was Up = Next, Down = Prev
-        // This matches logic.
+        // Usuario: Arriba = +1 Parada, Abajo = -1 Parada
 
         if (state.manualMode) {
             if (!state.currentRoute) return;
 
             if (direction === 'up') {
-                // Next stop (Increment index)
+                // Siguiente parada (Incrementar índice)
                 state.manualStopIndex++;
                 if (state.manualStopIndex >= state.currentRoute.stops.length) {
                     state.manualStopIndex = state.currentRoute.stops.length - 1;
                 }
             } else {
-                // Prev stop (Decrement index)
+                // Parada anterior (Decrementar índice)
                 state.manualStopIndex--;
                 if (state.manualStopIndex < 0) {
                     state.manualStopIndex = 0;
                 }
             }
-            // Force update immediately
+            // Forzar actualización inmediata
             updateClock();
 
-            // Ensure the UI is updated even if deviation doesn't change significantly?
-            // Force deviation update call
+            // Forzar llamada de actualización de desviación
             const now = new Date();
             updateDeviation(now);
         }
-        // Else: Do nothing in Auto Mode as per requirements.
+        // Sino: No hacer nada en Modo Auto según requerimientos.
     }
 
+    /**
+     * Ajusta el progreso de la simulación (No utilizado actualmente en la UI principal, pero útil para lógica interna).
+     *
+     * @param {number} delta - Cambio en el progreso.
+     */
     function adjustSim(delta) {
         if (!state.isSimulating && !state.currentRoute) return;
         let newVal = state.simProgress + delta;
@@ -208,6 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSimulationLoop();
     }
 
+    /**
+     * Reinicia el estado de la simulación.
+     */
     function resetSimulation() {
         state.isSimulating = false;
         if (state.simInterval) clearInterval(state.simInterval);
@@ -215,14 +307,20 @@ document.addEventListener('DOMContentLoaded', () => {
         els.simSlider.value = 0;
         els.simStatus.textContent = "Inactivo";
         els.btnSimStart.textContent = "Iniciar Simulación";
-        updateClock(); // Reset view
+        updateClock(); // Resetear vista
     }
 
+    /**
+     * Obtiene la posición actual del dispositivo.
+     * Si está simulando, devuelve la posición interpolada. Si no, devuelve la del GPS real.
+     *
+     * @returns {Object|null} Objeto con {lat, lng} o null si no está disponible.
+     */
     function getCurrentPosition() {
          if (state.isSimulating) {
             return getSimulatedPosition(state.simProgress);
         } else {
-            // Real GPS
+            // GPS Real
             if (!state.lastGpsPosition) return null;
             return {
                 lat: state.lastGpsPosition.lat,
@@ -231,8 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Core Features ---
+    // --- Características Principales ---
 
+    /**
+     * Actualiza el reloj de la pantalla y desencadena la actualización de desviación.
+     * Se ejecuta cada segundo.
+     */
     function updateClock() {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('es-AR', { hour12: false });
@@ -243,56 +345,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Calcula y actualiza la visualización de la desviación (adelanto/atraso).
+     *
+     * @param {Date} nowDate - Objeto Date actual.
+     */
     function updateDeviation(nowDate) {
         try {
             const currentSec = nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds();
 
-            // Get Position
+            // Obtener Posición
             const pos = getCurrentPosition();
             if (!pos) return;
 
             let lat = pos.lat;
             let lng = pos.lng;
 
-            // Update Map Marker
+            // Actualizar Marcador Mapa
             if (state.mapVisible) {
                 MapLogic.updateUserPosition(lat, lng);
             }
 
-            // Calculate Deviation
+            // Calcular Desviación
             let result = null;
 
             if (state.manualMode) {
-                // Manual Deviation Calculation
+                // Cálculo de Desviación Manual
                 if (state.manualStopIndex < 0 || state.manualStopIndex >= state.currentRoute.stops.length) return;
                 const targetStop = state.currentRoute.stops[state.manualStopIndex];
                 const idx = state.manualStopIndex;
 
                 if (idx === 0) {
-                    // User selected the start point?
-                    // Deviation is just TimeNow - TimeStart?
+                    // ¿Usuario seleccionó el punto de inicio?
+                    // Desviación es TiempoAhora - TiempoInicio
                     const tStart = RouteLogic.timeToSeconds(targetStop.time);
                     const diff = tStart - currentSec;
-                    // If positive, we are early (start is in future).
-                    // If negative, we are late (start was in past).
-                    // Format logic shared?
+                    // Si positivo, estamos temprano (inicio es en futuro).
+                    // Si negativo, estamos tarde (inicio fue en pasado).
                     result = formatDeviationResult(diff, targetStop.name, tStart);
                 } else {
-                    // Segment: idx-1 -> idx
+                    // Segmento: idx-1 -> idx
                     const prevStop = state.currentRoute.stops[idx-1];
 
-                    // Project on segment
-                    const proj = RouteLogic.projectPointOnSegment(
-                        {x: lat, y: lng},
-                        {x: prevStop.lat, y: prevStop.lng},
-                        {x: targetStop.lat, y: targetStop.lng}
-                    );
+                    // El Modo Manual debe respetar la geometría de la Polilínea igual que el Modo Auto.
+                    // Estamos restringidos al segmento entre prevStop y targetStop.
+
+                    const points = RouteLogic.getSegmentPoints(prevStop, targetStop);
+
+                    // Calcular longitudes de sub-segmentos y distancia total
+                    let totalPathDist = 0;
+                    const subSegmentDists = [];
+                    for(let j=0; j<points.length-1; j++) {
+                        const d = RouteLogic.getDistance(points[j].lat, points[j].lng, points[j+1].lat, points[j+1].lng);
+                        subSegmentDists.push(d);
+                        totalPathDist += d;
+                    }
+
+                    // Encontrar la proyección más cercana en esta cadena específica de camino
+                    let minLocalDist = Infinity;
+                    let bestRatio = 0;
+
+                    for(let j=0; j<points.length-1; j++) {
+                        const A = points[j];
+                        const B = points[j+1];
+
+                        // Proyectar Punto P en Segmento de Línea AB
+                        const p = RouteLogic.projectPointOnSegment(
+                            {x: lat, y: lng},
+                            {x: A.lat, y: A.lng},
+                            {x: B.lat, y: B.lng}
+                        );
+
+                        const dist = RouteLogic.getDistance(lat, lng, p.x, p.y);
+
+                        if (dist < minLocalDist) {
+                            minLocalDist = dist;
+
+                            // Calcular ratio acumulativo
+                            let distBefore = 0;
+                            for(let k=0; k<j; k++) distBefore += subSegmentDists[k];
+                            distBefore += subSegmentDists[j] * p.ratio;
+
+                            bestRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
+                        }
+                    }
 
                     const t1 = RouteLogic.timeToSeconds(prevStop.time);
                     const t2 = RouteLogic.timeToSeconds(targetStop.time);
 
-                    const expectedTimeSec = t1 + (t2 - t1) * proj.ratio;
-                    const diff = expectedTimeSec - currentSec; // + ahead, - behind
+                    const expectedTimeSec = t1 + (t2 - t1) * bestRatio;
+                    const diff = expectedTimeSec - currentSec; // + adelante, - atrás
 
                     result = formatDeviationResult(diff, targetStop.name, expectedTimeSec);
                 }
@@ -303,10 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (result) {
-            // Display
+            // Mostrar
             els.deviation.textContent = result.deviationStr;
 
-            // Color/Style
+            // Color/Estilo
             els.deviation.classList.remove('late', 'early');
             if (result.deviationSec >= 0) {
                 els.deviation.classList.add('early');
@@ -316,28 +458,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
             els.nextStop.textContent = result.nextStop;
 
-            // Update Arrival Time
+            // Actualizar Hora de Llegada
             const nextStopObj = state.currentRoute.stops.find(s => s.name === result.nextStop);
             if (nextStopObj) {
                 els.arrivalTime.textContent = nextStopObj.time.substring(0, 5);
             }
 
-            // Sync Manual Index if in Auto Mode (so if we switch to manual, we start correct)
+            // Sincronizar Índice Manual si en Modo Auto (para que al cambiar a manual estemos en el correcto)
             if (!state.manualMode) {
                  const idx = state.currentRoute.stops.findIndex(s => s.name === result.nextStop);
                  if (idx !== -1) state.manualStopIndex = idx;
             }
 
-            // Update Map Markers (Green for next stop)
+            // Actualizar Marcadores Mapa (Verde para siguiente parada)
             if (state.mapVisible) {
                 MapLogic.updateStopMarkers(result.nextStop);
             }
         }
     } catch (e) {
-        console.error("Deviation Error:", e);
+        console.error("Error de Desviación:", e);
     }
     }
 
+    /**
+     * Formatea el resultado numérico de la desviación en una estructura utilizable por la UI.
+     *
+     * @param {number} diff - Diferencia en segundos.
+     * @param {string} nextStopName - Nombre de la siguiente parada.
+     * @param {number} expectedTime - Tiempo esperado en segundos.
+     * @returns {Object} Objeto con datos formateados de desviación.
+     */
     function formatDeviationResult(diff, nextStopName, expectedTime) {
         const absDiff = Math.abs(diff);
         const m = Math.floor(absDiff / 60);
@@ -353,17 +503,23 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Simulation Logic ---
+    // --- Lógica de Simulación ---
 
+    /**
+     * Calcula la posición simulada en la ruta basada en un porcentaje de progreso.
+     *
+     * @param {number} progressPercent - Porcentaje de progreso (0-100).
+     * @returns {Object|null} Coordenadas {lat, lng} correspondientes al progreso.
+     */
     function getSimulatedPosition(progressPercent) {
         if (!state.currentRoute || state.currentRoute.stops.length < 2) return null;
 
         const stops = state.currentRoute.stops;
-        // Calculate total distance
+        // Calcular distancia total
         let totalDist = 0;
         const dists = [];
         for(let i=0; i<stops.length-1; i++) {
-            // Use getPathTotalDistance for accurate simulation
+            // Usar getPathTotalDistance para simulación precisa
             const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
             const d = RouteLogic.getPathTotalDistance(points);
             dists.push(d);
@@ -372,12 +528,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const targetDist = totalDist * (progressPercent / 100);
 
-        // Find segment
+        // Encontrar segmento
         let covered = 0;
         for(let i=0; i<dists.length; i++) {
             if (covered + dists[i] >= targetDist) {
-                // In this STOP-TO-STOP segment
-                // Now we need to find where in the polyline we are.
+                // En este segmento PARADA-A-PARADA
+                // Ahora necesitamos encontrar dónde en la polilínea estamos.
                 const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
                 const distInSegment = targetDist - covered;
 
@@ -398,11 +554,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             covered += dists[i];
         }
-        // End of route
+        // Fin de ruta
         const last = stops[stops.length-1];
         return { lat: last.lat, lng: last.lng };
     }
 
+    /**
+     * Inicia o detiene la simulación.
+     */
     function toggleSimulation() {
         if (state.isSimulating) {
             state.isSimulating = false;
@@ -420,31 +579,229 @@ document.addEventListener('DOMContentLoaded', () => {
             els.simSlider.disabled = false;
             els.simStatus.textContent = "Simulando...";
 
-            // Auto-move slider for effect? Or just manual?
-            // Requirement says "Debe verse igual... navegara con este dispositivo... Agregar modo Demo".
-            // Let's make it auto-increment slightly to show changes.
             state.simInterval = setInterval(() => {
                 if (state.simProgress < 100) {
-                   // state.simProgress += 0.1; // Slow auto move
-                   // els.simSlider.value = state.simProgress;
-                   // Not auto moving, let user control it or it might override manual test
+                   // Espacio para auto-movimiento si se desea
                 }
             }, 100);
         }
     }
 
+    /**
+     * Actualiza el bucle de simulación (refresca reloj y cálculos).
+     */
     function updateSimulationLoop() {
-        // Trigger update manually
+        // Disparar actualización manualmente
         updateClock();
     }
 
-    // --- Editor Logic ---
+    // --- Lógica del Modo PRO ---
 
+    let editingLineId = null;
+
+    /** Abre el modal de Modo Profesional y carga las líneas */
+    function openProMode() {
+        els.proModal.classList.remove('hidden');
+        els.proLineEditor.classList.add('hidden');
+        els.proDriverView.classList.add('hidden');
+        els.proLinesView.classList.remove('hidden');
+        loadLinesList();
+    }
+
+    /** Carga y renderiza la lista de líneas */
+    function loadLinesList() {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        els.linesList.innerHTML = '';
+
+        if (lines.length === 0) {
+            els.linesList.innerHTML = '<li style="text-align:center; padding:10px; color:#777">No hay líneas creadas</li>';
+            return;
+        }
+
+        lines.forEach(line => {
+            const li = document.createElement('li');
+            li.className = 'item-card';
+            li.innerHTML = `
+                <div>
+                    <h4>${line.name}</h4>
+                    <p>${line.start} - ${line.end} | ${line.turns} Vueltas</p>
+                </div>
+                <div>
+                    <button class="btn-small" onclick="window.driveLine(${line.id})">Conducir</button>
+                    <button class="btn-small" onclick="window.editLine(${line.id})">Editar</button>
+                </div>
+            `;
+            els.linesList.appendChild(li);
+        });
+    }
+
+    window.driveLine = function(id) {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const line = lines.find(l => l.id === id);
+        if (!line) return;
+
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const rIda = savedRoutes.find(r => r.id == line.routeIda);
+        const rVuelta = savedRoutes.find(r => r.id == line.routeVuelta);
+
+        if (!rIda || !rVuelta) {
+            alert("Error: Faltan las rutas de Ida o Vuelta asociadas.");
+            return;
+        }
+
+        // Calcular Itinerario
+        const trips = ScheduleLogic.calculateItinerary({
+            startTime: line.start,
+            endTime: line.end,
+            turns: line.turns,
+            restIda: line.restIda !== undefined ? line.restIda : (line.rest || 0),
+            restVuelta: line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0)
+        }, rIda, rVuelta);
+
+        if (!trips || trips.length === 0) {
+            alert("No se pudo generar el cronograma. Verifique los horarios.");
+            return;
+        }
+
+        // Mostrar Driver View
+        els.proLinesView.classList.add('hidden');
+        els.proDriverView.classList.remove('hidden');
+        els.driverLineTitle.textContent = `Conducir: ${line.name}`;
+        els.tripsList.innerHTML = '';
+
+        trips.forEach(trip => {
+            const div = document.createElement('div');
+            div.className = 'trip-card';
+            div.innerHTML = `
+                <div class="trip-dir">${trip.direction}</div>
+                <div class="trip-time">${trip.startTime} - ${trip.endTime}</div>
+                <div class="trip-leg">Tramo ${trip.legIndex}</div>
+            `;
+            div.onclick = () => {
+                startTrip(trip, line.name);
+            };
+            els.tripsList.appendChild(div);
+        });
+    };
+
+    function startTrip(trip, lineName) {
+        const routeObj = {
+            id: trip.id,
+            name: `${lineName} (${trip.direction})`,
+            stops: trip.stops
+        };
+        selectRoute(routeObj);
+        els.proModal.classList.add('hidden');
+    }
+
+    window.editLine = function(id) {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const line = lines.find(l => l.id === id);
+        openLineEditor(line);
+    };
+
+    function openLineEditor(line) {
+        els.proLinesView.classList.add('hidden');
+        els.proLineEditor.classList.remove('hidden');
+
+        // Cargar opciones de rutas
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const populate = (sel, selectedId) => {
+            sel.innerHTML = '<option value="">Seleccionar...</option>';
+            savedRoutes.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = r.name;
+                if (selectedId && r.id == selectedId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        };
+
+        if (line) {
+            editingLineId = line.id;
+            els.lineNameInput.value = line.name;
+            populate(els.selectRouteIda, line.routeIda);
+            populate(els.selectRouteVuelta, line.routeVuelta);
+            els.lineStartTime.value = line.start;
+            els.lineEndTime.value = line.end;
+            els.lineTurns.value = line.turns;
+            els.lineRestIda.value = line.restIda !== undefined ? line.restIda : (line.rest || 0);
+            els.lineRestVuelta.value = line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0);
+            els.btnDeleteLine.classList.remove('hidden');
+        } else {
+            editingLineId = null;
+            els.lineNameInput.value = '';
+            populate(els.selectRouteIda, null);
+            populate(els.selectRouteVuelta, null);
+            els.lineStartTime.value = '';
+            els.lineEndTime.value = '';
+            els.lineTurns.value = '';
+            els.lineRestIda.value = 0;
+            els.lineRestVuelta.value = 0;
+            els.btnDeleteLine.classList.add('hidden');
+        }
+    }
+
+    function saveLine() {
+        const name = els.lineNameInput.value;
+        const ida = els.selectRouteIda.value;
+        const vuelta = els.selectRouteVuelta.value;
+        const start = els.lineStartTime.value;
+        const end = els.lineEndTime.value;
+        const turns = els.lineTurns.value;
+        const restIda = els.lineRestIda.value;
+        const restVuelta = els.lineRestVuelta.value;
+
+        if (!name || !ida || !vuelta || !start || !end || !turns) {
+            alert("Complete todos los campos obligatorios");
+            return;
+        }
+
+        const line = {
+            id: editingLineId || Date.now(),
+            name,
+            routeIda: ida,
+            routeVuelta: vuelta,
+            start,
+            end,
+            turns: parseFloat(turns),
+            restIda: parseInt(restIda) || 0,
+            restVuelta: parseInt(restVuelta) || 0
+        };
+
+        let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        if (editingLineId) {
+            const idx = lines.findIndex(l => l.id === editingLineId);
+            if (idx !== -1) lines[idx] = line;
+        } else {
+            lines.push(line);
+        }
+
+        localStorage.setItem('gps_lines', JSON.stringify(lines));
+        openProMode(); // Volver a lista
+    }
+
+    function deleteLine() {
+        if (!editingLineId) return;
+        if (!confirm("¿Eliminar esta línea?")) return;
+        let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        lines = lines.filter(l => l.id !== editingLineId);
+        localStorage.setItem('gps_lines', JSON.stringify(lines));
+        openProMode();
+    }
+
+    // --- Lógica del Editor ---
+
+    /** @type {Array<Object>} Lista temporal de paradas en edición */
     let tempStops = [];
 
+    /**
+     * Abre el modal del editor de rutas.
+     * Inicializa el mapa del editor si es necesario y carga la ruta a editar.
+     */
     function openEditor() {
         els.modal.classList.remove('hidden');
-        // Init map after visible
+        // Init mapa después de visible
         setTimeout(() => {
             MapLogic.initEditorMap('editor-map', (latlng) => {
                 handleMapClick(latlng);
@@ -452,15 +809,21 @@ document.addEventListener('DOMContentLoaded', () => {
             MapLogic.editorMap.invalidateSize();
         }, 100);
 
-        // Reset editor state
+        // Reset estado editor
         if (!state.editingRouteId) {
             clearEditor();
         } else {
-            // If editing existing, render it
+            // Si editando existente, renderizarla
             MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         }
     }
 
+    /**
+     * Maneja el clic en el mapa del editor.
+     * Dependiendo del modo, añade una parada o un punto de trazado.
+     *
+     * @param {Object} latlng - Coordenadas del clic.
+     */
     function handleMapClick(latlng) {
         if (state.drawingMode) {
             addPathPoint(latlng);
@@ -469,6 +832,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Añade una nueva parada a la lista de edición.
+     *
+     * @param {Object} latlng - Coordenadas de la nueva parada.
+     */
     function addStopToEditor(latlng) {
         const count = tempStops.length + 1;
         const stop = {
@@ -476,24 +844,36 @@ document.addEventListener('DOMContentLoaded', () => {
             lat: latlng.lat,
             lng: latlng.lng,
             time: '',
-            pathNext: [] // Init empty path
+            pathNext: [] // Init path vacío
         };
         tempStops.push(stop);
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         renderStopList();
     }
 
+    /**
+     * Actualiza la ubicación de una parada existente (por arrastre).
+     *
+     * @param {number} index - Índice de la parada.
+     * @param {number} lat - Nueva latitud.
+     * @param {number} lng - Nueva longitud.
+     */
     function updateStopLocation(index, lat, lng) {
         if (tempStops[index]) {
             tempStops[index].lat = lat;
             tempStops[index].lng = lng;
 
-            // Re-render route line because it moved
+            // Re-render ruta línea porque se movió
             MapLogic.renderEditorRoute(tempStops, updateStopLocation);
-            renderStopList(); // Update displayed coords
+            renderStopList(); // Actualizar coordenadas mostradas
         }
     }
 
+    /**
+     * Añade un punto intermedio (trazado) a la parada activa.
+     *
+     * @param {Object} latlng - Coordenadas del punto.
+     */
     function addPathPoint(latlng) {
         if (state.drawingRouteIndex === -1) return;
         const stop = tempStops[state.drawingRouteIndex];
@@ -502,20 +882,28 @@ document.addEventListener('DOMContentLoaded', () => {
         stop.pathNext.push({lat: latlng.lat, lng: latlng.lng});
 
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
-        renderStopList(); // To show Undo button enabled?
+        renderStopList(); // Para mostrar botón Deshacer habilitado?
     }
 
+    /**
+     * Inicia el modo de dibujo para un segmento específico.
+     *
+     * @param {number} index - Índice de la parada de origen.
+     */
     function startDrawing(index) {
         state.drawingMode = true;
         state.drawingRouteIndex = index;
 
-        // Clear existing path to let user redraw
+        // Limpiar camino existente para dejar al usuario redibujar
         tempStops[index].pathNext = [];
 
         MapLogic.renderEditorRoute(tempStops, updateStopLocation);
         renderStopList();
     }
 
+    /**
+     * Deshace el último punto añadido en modo dibujo.
+     */
     function undoLastPoint() {
         if (!state.drawingMode || state.drawingRouteIndex === -1) return;
         const stop = tempStops[state.drawingRouteIndex];
@@ -525,16 +913,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Finaliza el modo de dibujo.
+     */
     function stopDrawing() {
         state.drawingMode = false;
         state.drawingRouteIndex = -1;
         renderStopList();
     }
 
+    /**
+     * Renderiza la lista de paradas en el panel lateral del editor.
+     * Genera el HTML para cada ítem de parada y controles de dibujo.
+     */
     function renderStopList() {
         els.stopsList.innerHTML = '';
         tempStops.forEach((stop, idx) => {
-            // Stop Item
+            // Item Parada
             const div = document.createElement('div');
             div.className = 'stop-item';
             div.innerHTML = `
@@ -551,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             els.stopsList.appendChild(div);
 
-            // Drawing Button (Only between stops)
+            // Botón Dibujar (Solo entre paradas)
             if (idx < tempStops.length - 1) {
                 const drawContainer = document.createElement('div');
                 drawContainer.className = 'draw-container';
@@ -559,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawContainer.style.margin = '5px 0';
 
                 if (state.drawingMode && state.drawingRouteIndex === idx) {
-                    // Active Drawing Controls
+                    // Controles de Dibujo Activos
                     drawContainer.innerHTML = `
                         <div style="background: #eef; padding: 5px; border: 1px dashed #00f; border-radius: 5px;">
                             <small>Dibujando tramo...</small><br>
@@ -568,12 +963,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                 } else {
-                    // Start Drawing Button
+                    // Botón Iniciar Dibujo
                     const btnDraw = document.createElement('button');
                     btnDraw.innerHTML = '<i class="fa-solid fa-pencil"></i> Dibujar Trazado';
                     btnDraw.style.fontSize = '12px';
                     btnDraw.onclick = () => startDrawing(idx);
-                    // Disable if currently drawing another segment
+                    // Deshabilitar si ya se está dibujando otro segmento
                     if (state.drawingMode) btnDraw.disabled = true;
 
                     drawContainer.appendChild(btnDraw);
@@ -583,33 +978,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Expose window helpers for innerHTML onclicks
+    // Exponer helpers a window para onclicks en innerHTML
+    /**
+     * Actualiza la hora de una parada desde el input HTML.
+     * @param {number} idx - Índice de la parada.
+     * @param {string} val - Valor de tiempo.
+     */
     window.updateStopTime = function(idx, val) {
         tempStops[idx].time = val;
         if (val.length === 5) tempStops[idx].time = val + ":00";
         else tempStops[idx].time = val;
     };
 
+    /** Wrapper global para deshacer dibujo */
     window.undoDrawing = function() {
         undoLastPoint();
     };
 
+    /** Wrapper global para finalizar dibujo */
     window.finishDrawing = function() {
         stopDrawing();
     };
 
+    /**
+     * Calcula los tiempos intermedios para las paradas en el editor utilizando RouteLogic.
+     */
     function calculateEditorTimes() {
         tempStops = RouteLogic.calculateIntermediateTimes(tempStops);
         renderStopList();
     }
 
+    /**
+     * Guarda la ruta actual en el LocalStorage.
+     * Valida que haya al menos 2 paradas y horarios de inicio/fin.
+     */
     function saveRoute() {
         const name = els.routeNameInput.value || "Sin Nombre";
         if (tempStops.length < 2) {
             alert("Necesita al menos 2 paradas.");
             return;
         }
-        // Validation: Start and End times needed
+        // Validación: Tiempos inicio y fin requeridos
         if (!tempStops[0].time || !tempStops[tempStops.length-1].time) {
             alert("La primera y última parada deben tener horario.");
             return;
@@ -624,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const saved = JSON.parse(localStorage.getItem('gps_routes') || '[]');
 
         if (state.editingRouteId) {
-            // Update existing
+            // Actualizar existente
             const index = saved.findIndex(r => r.id === state.editingRouteId);
             if (index !== -1) {
                 saved[index] = route;
@@ -632,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 saved.push(route); // Fallback
             }
         } else {
-            // Create new
+            // Crear nueva
             saved.push(route);
         }
 
@@ -641,25 +1050,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // alert("Ruta guardada!"); // REMOVED ALERT TO FIX PLAYWRIGHT TIMING
         clearEditor(); // Reset
         loadSavedRoutes();
-        els.modal.classList.add('hidden'); // Manually hide modal instead of waiting for alert
+        els.modal.classList.add('hidden'); // Ocultar manual en lugar de esperar alerta
 
-        // Always select the saved route to make it active immediately
+        // Seleccionar siempre la ruta guardada
         selectRoute(route);
     }
 
+    /**
+     * Limpia el estado del editor y resetea la vista.
+     */
     function clearEditor() {
         tempStops = [];
         state.editingRouteId = null;
         els.routeNameInput.value = '';
-        state.drawingMode = false; // Reset state
+        state.drawingMode = false; // Reset estado
         state.drawingRouteIndex = -1;
         MapLogic.clearEditor();
         renderStopList();
 
-        // If buttons for cancel/new are added later, update text
+        // Si se añaden botones cancelar/nuevo luego, actualizar texto
         els.btnSave.textContent = "Guardar Bandera";
     }
 
+    /**
+     * Carga las rutas guardadas desde LocalStorage y las renderiza en la lista.
+     */
     function loadSavedRoutes() {
         const saved = JSON.parse(localStorage.getItem('gps_routes') || '[]');
         els.savedList.innerHTML = '';
@@ -710,12 +1125,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * Carga una ruta en el editor para su modificación.
+     *
+     * @param {Object} route - Objeto de ruta a editar.
+     */
     function editRoute(route) {
         state.editingRouteId = route.id;
         els.routeNameInput.value = route.name;
         tempStops = JSON.parse(JSON.stringify(route.stops));
 
-        // Ensure pathNext exists for all
+        // Asegurar pathNext existe
         tempStops.forEach(s => {
             if (!s.pathNext) s.pathNext = [];
         });
@@ -725,6 +1145,11 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnSave.textContent = "Actualizar Bandera";
     }
 
+    /**
+     * Elimina una ruta guardada.
+     *
+     * @param {number} id - ID de la ruta a eliminar.
+     */
     function deleteRoute(id) {
         if (!confirm("¿Seguro que desea eliminar esta bandera?")) return;
 
@@ -737,11 +1162,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentRoute && state.currentRoute.id === id) {
             state.currentRoute = null;
             els.routeName.textContent = "SIN BANDERA";
-            // Clear nav map
-            if (state.mapVisible) MapLogic.initNavMap('nav-map'); // reset view not perfectly clean but okay
+            // Limpiar nav map
+            if (state.mapVisible) MapLogic.initNavMap('nav-map'); // reset view
         }
     }
 
+    /**
+     * Selecciona una ruta como activa para la navegación.
+     *
+     * @param {Object} route - La ruta a activar.
+     */
     function selectRoute(route) {
         state.currentRoute = route;
         els.routeName.textContent = route.name;
@@ -752,8 +1182,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Device UI Toggles ---
+    // --- Toggles UI Dispositivo ---
 
+    /**
+     * Alterna el modo de alto contraste de la pantalla.
+     */
     function toggleHighContrast() {
         state.highContrast = !state.highContrast;
         if (state.highContrast) {
@@ -763,6 +1196,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Alterna la visibilidad del mapa de navegación en pantalla.
+     */
     function toggleNavMap() {
         state.mapVisible = !state.mapVisible;
         if (state.mapVisible) {

@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Editor
         modal: document.getElementById('editor-modal'),
-        closeModal: document.querySelector('.close-modal'),
+        closeModal: document.getElementById('close-editor-modal'),
         stopsList: document.getElementById('stops-list'),
         btnCalc: document.getElementById('btn-calc-times'),
         btnSave: document.getElementById('btn-save-route'),
@@ -94,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lineStartTime: document.getElementById('line-start-time'),
         lineEndTime: document.getElementById('line-end-time'),
         lineTurns: document.getElementById('line-turns'),
-        lineRest: document.getElementById('line-rest'),
+        lineRestIda: document.getElementById('line-rest-ida'),
+        lineRestVuelta: document.getElementById('line-rest-vuelta'),
         btnSaveLine: document.getElementById('btn-save-line'),
         btnCancelLine: document.getElementById('btn-cancel-line'),
         btnDeleteLine: document.getElementById('btn-delete-line'),
@@ -187,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Editor Rutas
         els.closeModal.addEventListener('click', () => {
             els.modal.classList.add('hidden');
-            state.drawingMode = false; // Asegurar salir modo dibujo
+            stopDrawing(); // Asegurar salir modo dibujo y limpiar estado UI
             MapLogic.renderEditorRoute(tempStops); // Redibujar limpio
         });
         els.btnCalc.addEventListener('click', calculateEditorTimes);
@@ -653,7 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
             startTime: line.start,
             endTime: line.end,
             turns: line.turns,
-            restMinutes: line.rest
+            restIda: line.restIda !== undefined ? line.restIda : (line.rest || 0),
+            restVuelta: line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0)
         }, rIda, rVuelta);
 
         if (!trips || trips.length === 0) {
@@ -723,7 +725,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = line.start;
             els.lineEndTime.value = line.end;
             els.lineTurns.value = line.turns;
-            els.lineRest.value = line.rest;
+            els.lineRestIda.value = line.restIda !== undefined ? line.restIda : (line.rest || 0);
+            els.lineRestVuelta.value = line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0);
             els.btnDeleteLine.classList.remove('hidden');
         } else {
             editingLineId = null;
@@ -733,7 +736,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = '';
             els.lineEndTime.value = '';
             els.lineTurns.value = '';
-            els.lineRest.value = 0;
+            els.lineRestIda.value = 0;
+            els.lineRestVuelta.value = 0;
             els.btnDeleteLine.classList.add('hidden');
         }
     }
@@ -745,7 +749,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = els.lineStartTime.value;
         const end = els.lineEndTime.value;
         const turns = els.lineTurns.value;
-        const rest = els.lineRest.value;
+        const restIda = els.lineRestIda.value;
+        const restVuelta = els.lineRestVuelta.value;
 
         if (!name || !ida || !vuelta || !start || !end || !turns) {
             alert("Complete todos los campos obligatorios");
@@ -760,7 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
             start,
             end,
             turns: parseFloat(turns),
-            rest: parseInt(rest) || 0
+            restIda: parseInt(restIda) || 0,
+            restVuelta: parseInt(restVuelta) || 0
         };
 
         let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');

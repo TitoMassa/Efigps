@@ -1,6 +1,0 @@
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET /js/map_logic.js HTTP/1.1" 200 -
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET /js/route_logic.js HTTP/1.1" 200 -
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET /js/schedule_logic.js HTTP/1.1" 200 -
-127.0.0.1 - - [22/Nov/2025 23:22:57] "GET /js/app.js HTTP/1.1" 200 -

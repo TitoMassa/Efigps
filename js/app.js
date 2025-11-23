@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         isServiceFinished: false // Indica si terminó todo el diagrama
     };
 
+    // Exponer estado para depuración
+    window.appState = state;
+
     /**
      * Referencias a elementos del DOM utilizados en la aplicación.
      */
@@ -60,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         speed: document.getElementById('speed'),
         screenContent: document.querySelector('.screen-content'),
         navMapContainer: document.getElementById('nav-map-container'),
+        lapDisplay: document.getElementById('lap-display'),
 
         // Botones
         btnMap: document.getElementById('btn-map-toggle'),
@@ -726,6 +730,10 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
+        // Actualizar contador de vueltas (VH)
+        const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
+        if (els.lapDisplay) els.lapDisplay.textContent = `VH ${lapNumber}`;
+
         const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {
             id: trip.id,
@@ -1329,7 +1337,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentHTML = els.deviation.innerHTML;
             if (!currentHTML.includes('Punta de Línea')) {
                  const val = els.deviation.textContent;
-                 els.deviation.innerHTML = `<span style="font-size: 0.5em; display: block; margin-bottom: 5px;">Punta de Línea</span>${val}`;
+                 const statusClass = els.deviation.classList.contains('early') ? 'early' : (els.deviation.classList.contains('late') ? 'late' : 'neutral');
+                 els.deviation.innerHTML = `
+                    <div class="terminal-box">
+                        <div class="terminal-label">Punta de Línea</div>
+                        <div class="terminal-value ${statusClass}">${val}</div>
+                    </div>
+                 `;
             }
         } else {
             // Fuera del radio, limpiar etiqueta si existe

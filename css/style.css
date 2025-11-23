@@ -178,6 +178,18 @@ body {
 .screen-content.high-contrast #deviation-display.late { color: #ff4444; }
 .screen-content.high-contrast #deviation-display.early { color: #44ff44; }
 
+/* Estilos de Punta de Línea y Fin de Servicio */
+#deviation-display.service-finished {
+    font-size: 32px;
+    color: #555;
+    line-height: 1.2;
+    text-align: center;
+}
+.screen-content.high-contrast #deviation-display.service-finished {
+    color: #aaa;
+    font-weight: bold;
+}
+
 .footer-info {
     padding: 8px 12px;
     display: flex;

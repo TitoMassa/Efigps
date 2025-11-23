@@ -1333,25 +1333,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (distMeters <= 50) {
             // Dentro del radio de 50m de la punta
-            // Inyectar etiqueta "Punta de Línea" si no está ya
-            const currentHTML = els.deviation.innerHTML;
-            if (!currentHTML.includes('Punta de Línea')) {
-                 const val = els.deviation.textContent;
-                 const statusClass = els.deviation.classList.contains('early') ? 'early' : (els.deviation.classList.contains('late') ? 'late' : 'neutral');
-                 els.deviation.innerHTML = `
-                    <div class="terminal-box">
-                        <div class="terminal-label">Punta de Línea</div>
-                        <div class="terminal-value ${statusClass}">${val}</div>
-                    </div>
-                 `;
-            }
+            const val = els.deviation.textContent;
+
+            // Usar modo terminal: Texto simple en blanco, sin colores de semáforo
+            els.deviation.classList.add('terminal-mode');
+            els.deviation.classList.remove('early', 'late');
+
+            // Formato de una sola línea
+            els.deviation.textContent = `Punta de Línea: ${val}`;
         } else {
-            // Fuera del radio, limpiar etiqueta si existe
-            // El updateDeviation sobrescribe el textContent, eliminando el HTML extra,
-            // así que si NO hacemos nada aquí, se limpiará solo en el próximo tick de updateDeviation
-            // (porque updateDeviation hace els.deviation.textContent = ...).
-            // PERO, checkTerminalStatus se llama DESPUÉS de updateDeviation en el mismo tick.
-            // Así que si no inyectamos, queda limpio. Correcto.
+            // Fuera del radio
+            els.deviation.classList.remove('terminal-mode');
+            // Los colores early/late ya fueron asignados en updateDeviation
         }
     }
 

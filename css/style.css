@@ -178,6 +178,51 @@ body {
 .screen-content.high-contrast #deviation-display.late { color: #ff4444; }
 .screen-content.high-contrast #deviation-display.early { color: #44ff44; }
 
+/* Estilos de Punta de Línea y Fin de Servicio */
+#deviation-display.service-finished {
+    font-size: 32px;
+    color: #555;
+    line-height: 1.2;
+    text-align: center;
+}
+.screen-content.high-contrast #deviation-display.service-finished {
+    color: #aaa;
+    font-weight: bold;
+}
+
+/* Caja de Punta de Línea */
+.terminal-box {
+    border: 2px solid #fff;
+    background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro semitransparente */
+    border-radius: 12px;
+    padding: 8px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    color: #fff;
+    min-width: 180px;
+}
+
+.terminal-label {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    color: #ddd;
+}
+
+.terminal-value {
+    font-size: 36px; /* Más pequeño que los 72px normales */
+    font-weight: bold;
+    font-family: var(--font-digital);
+}
+
+/* Colores dentro de la caja */
+.terminal-value.early { color: #44ff44; }
+.terminal-value.late { color: #ff4444; }
+
 .footer-info {
     padding: 8px 12px;
     display: flex;

@@ -40,7 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Editor
         editingRouteId: null,
         drawingMode: false,
-        drawingRouteIndex: -1
+        drawingRouteIndex: -1,
+
+        // Itinerario Activo (Modo PRO)
+        activeItinerary: null, // Lista completa de viajes
+        activeTripIndex: -1,   // Índice del viaje actual
+        isServiceFinished: false // Indica si terminó todo el diagrama
     };
 
     /**
@@ -53,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         arrivalTime: document.getElementById('arrival-time'),
         routeName: document.getElementById('route-name'),
         speed: document.getElementById('speed'),
+        lapDisplay: document.getElementById('lap-display'),
         screenContent: document.querySelector('.screen-content'),
         navMapContainer: document.getElementById('nav-map-container'),
 
@@ -94,7 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lineStartTime: document.getElementById('line-start-time'),
         lineEndTime: document.getElementById('line-end-time'),
         lineTurns: document.getElementById('line-turns'),
-        lineRest: document.getElementById('line-rest'),
+        lineRestIda: document.getElementById('line-rest-ida'),
+        lineRestVuelta: document.getElementById('line-rest-vuelta'),
         btnSaveLine: document.getElementById('btn-save-line'),
         btnCancelLine: document.getElementById('btn-cancel-line'),
         btnDeleteLine: document.getElementById('btn-delete-line'),
@@ -676,20 +683,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="trip-leg">Tramo ${trip.legIndex}</div>
             `;
             div.onclick = () => {
-                startTrip(trip, line.name);
+                startItinerary(trips, trips.indexOf(trip), line.name);
             };
             els.tripsList.appendChild(div);
         });
     };
 
-    function startTrip(trip, lineName) {
+    /**
+     * Inicia un itinerario completo (o salta a un tramo específico).
+     * @param {Array} trips - Lista completa de viajes calculados.
+     * @param {number} startIndex - Índice del viaje inicial seleccionado.
+     * @param {string} lineName - Nombre base de la línea.
+     */
+    function startItinerary(trips, startIndex, lineName) {
+        state.activeItinerary = trips;
+        state.activeTripIndex = startIndex;
+        state.isServiceFinished = false;
+
+        loadTripFromItinerary(lineName);
+        els.proModal.classList.add('hidden');
+    }
+
+    function loadTripFromItinerary(lineName) {
+        if (!state.activeItinerary || state.activeTripIndex < 0 || state.activeTripIndex >= state.activeItinerary.length) {
+             // Aquí podría ir lógica de fin de servicio, pero por ahora solo limpiamos
+             state.currentRoute = null;
+             els.routeName.textContent = "SERVICIO FINALIZADO";
+             if (state.mapVisible) MapLogic.initNavMap('nav-map');
+             return;
+        }
+
+        const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {
             id: trip.id,
             name: `${lineName} (${trip.direction})`,
             stops: trip.stops
         };
+
         selectRoute(routeObj);
-        els.proModal.classList.add('hidden');
+
+        // Actualizar contador de vueltas (VH)
+        // Cada vuelta son 2 tramos (Ida + Vuelta).
+        const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
+        if (els.lapDisplay) els.lapDisplay.textContent = `VH ${lapNumber}`;
     }
 
     window.editLine = function(id) {
@@ -723,7 +759,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = line.start;
             els.lineEndTime.value = line.end;
             els.lineTurns.value = line.turns;
-            els.lineRest.value = line.rest;
+            els.lineRestIda.value = line.restIda !== undefined ? line.restIda : (line.rest || 0);
+            els.lineRestVuelta.value = line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0);
             els.btnDeleteLine.classList.remove('hidden');
         } else {
             editingLineId = null;
@@ -733,7 +770,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.lineStartTime.value = '';
             els.lineEndTime.value = '';
             els.lineTurns.value = '';
-            els.lineRest.value = 0;
+            els.lineRestIda.value = 0;
+            els.lineRestVuelta.value = 0;
             els.btnDeleteLine.classList.add('hidden');
         }
     }
@@ -745,7 +783,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = els.lineStartTime.value;
         const end = els.lineEndTime.value;
         const turns = els.lineTurns.value;
-        const rest = els.lineRest.value;
+        const restIda = els.lineRestIda.value;
+        const restVuelta = els.lineRestVuelta.value;
 
         if (!name || !ida || !vuelta || !start || !end || !turns) {
             alert("Complete todos los campos obligatorios");
@@ -760,7 +799,8 @@ document.addEventListener('DOMContentLoaded', () => {
             start,
             end,
             turns: parseFloat(turns),
-            rest: parseInt(rest) || 0
+            restIda: parseInt(restIda) || 0,
+            restVuelta: parseInt(restVuelta) || 0
         };
 
         let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');

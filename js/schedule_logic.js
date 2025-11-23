@@ -11,7 +11,8 @@ const ScheduleLogic = {
      * @param {string} config.startTime - Hora inicio (HH:MM).
      * @param {string} config.endTime - Hora fin (HH:MM).
      * @param {number} config.turns - Cantidad de vueltas (puede ser decimal, ej. 4.5).
-     * @param {number} config.restMinutes - Minutos de espera en cada punta (excepto final).
+     * @param {number} config.restIda - Minutos de espera tras finalizar Ida.
+     * @param {number} config.restVuelta - Minutos de espera tras finalizar Vuelta.
      * @param {Object} routeIda - Objeto de la ruta de Ida (debe tener stops).
      * @param {Object} routeVuelta - Objeto de la ruta de Vuelta (debe tener stops).
      * @returns {Array<Object>} Lista de viajes generados.
@@ -28,7 +29,8 @@ const ScheduleLogic = {
 
         const totalDurationSec = endSec - startSec;
         const turns = parseFloat(config.turns);
-        const restSec = parseInt(config.restMinutes) * 60;
+        const restIdaSec = parseInt(config.restIda) * 60;
+        const restVueltaSec = parseInt(config.restVuelta) * 60;
 
         // Calcular número total de tramos (legs)
         // 1 Vuelta Completa = 2 Tramos (Ida + Vuelta)
@@ -37,11 +39,14 @@ const ScheduleLogic = {
 
         if (totalLegs === 0) return [];
 
-        // Calcular descansos
-        // Regla: Descanso en cada punta, PERO NO al final del servicio.
-        // Cantidad de descansos = Cantidad de tramos - 1
-        const totalRestCount = Math.max(0, totalLegs - 1);
-        const totalRestTimeSec = totalRestCount * restSec;
+        // Calcular tiempo total de descanso
+        let totalRestTimeSec = 0;
+        for (let i = 0; i < totalLegs - 1; i++) {
+            const isIda = (i % 2) === 0;
+            // Si terminamos Ida (i=0,2...), descansamos restIda.
+            // Si terminamos Vuelta (i=1,3...), descansamos restVuelta.
+            totalRestTimeSec += isIda ? restIdaSec : restVueltaSec;
+        }
 
         // Tiempo disponible para conducción
         const totalDrivingTimeSec = totalDurationSec - totalRestTimeSec;
@@ -60,14 +65,10 @@ const ScheduleLogic = {
         // Calcular distancia total recorrrida en todo el diagrama
         let totalDiagramDistance = 0;
 
-        // Pares completos (Ida + Vuelta)
-        const fullCycles = Math.floor(turns);
-        totalDiagramDistance += fullCycles * (distIda + distVuelta);
-
-        // Media vuelta extra?
-        const hasHalfTurn = (turns % 1) !== 0;
-        if (hasHalfTurn) {
-            totalDiagramDistance += distIda; // Asumimos que la media vuelta siempre es Ida
+        // Sumar distancia exacta de los tramos que se van a generar (FIXED LOGIC)
+        for (let i = 0; i < totalLegs; i++) {
+            const isIda = (i % 2) === 0;
+            totalDiagramDistance += isIda ? distIda : distVuelta;
         }
 
         // Calcular tiempo por km (o unidad de distancia)
@@ -119,7 +120,9 @@ const ScheduleLogic = {
             // Avanzar reloj (Sumar duración + descanso si no es el último)
             currentSec += duration;
             if (i < totalLegs - 1) {
-                currentSec += restSec;
+                // Si terminamos Ida, aplicamos restIda antes de la vuelta.
+                // Si terminamos Vuelta, aplicamos restVuelta antes de la siguiente ida.
+                currentSec += isIda ? restIdaSec : restVueltaSec;
             }
         }
 

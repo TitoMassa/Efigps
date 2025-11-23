@@ -65,7 +65,7 @@ const ScheduleLogic = {
         // Calcular distancia total recorrrida en todo el diagrama
         let totalDiagramDistance = 0;
 
-        // Sumar distancia exacta de los tramos que se van a generar
+        // Sumar distancia exacta de los tramos que se van a generar (FIXED LOGIC)
         for (let i = 0; i < totalLegs; i++) {
             const isIda = (i % 2) === 0;
             totalDiagramDistance += isIda ? distIda : distVuelta;

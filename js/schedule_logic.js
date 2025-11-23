@@ -65,14 +65,10 @@ const ScheduleLogic = {
         // Calcular distancia total recorrrida en todo el diagrama
         let totalDiagramDistance = 0;
 
-        // Pares completos (Ida + Vuelta)
-        const fullCycles = Math.floor(turns);
-        totalDiagramDistance += fullCycles * (distIda + distVuelta);
-
-        // Media vuelta extra?
-        const hasHalfTurn = (turns % 1) !== 0;
-        if (hasHalfTurn) {
-            totalDiagramDistance += distIda; // Asumimos que la media vuelta siempre es Ida
+        // Sumar distancia exacta de los tramos que se van a generar
+        for (let i = 0; i < totalLegs; i++) {
+            const isIda = (i % 2) === 0;
+            totalDiagramDistance += isIda ? distIda : distVuelta;
         }
 
         // Calcular tiempo por km (o unidad de distancia)

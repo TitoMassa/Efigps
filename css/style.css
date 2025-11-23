@@ -158,7 +158,7 @@ body {
     justify-content: center;
     align-items: center;
     font-size: 72px; /* Desviación grande */
-    font-family: var(--font-digital);
+    font-family: var(--font-main);
     font-weight: 700;
     border-top: 2px solid #ccc;
     border-bottom: 2px solid #ccc;
@@ -172,13 +172,24 @@ body {
     border-color: #555;
 }
 
+/* Modo Punta de Línea */
+#deviation-display.terminal-mode {
+    font-size: 24px;
+    color: #ffffff !important;
+    background-color: #222; /* Fondo oscuro para contraste */
+    padding: 5px 15px;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: inline-block;
+}
+
 /* Colores de Desviación */
 #deviation-display.late { color: var(--highlight-red); }
 #deviation-display.early { color: #009900; }
 .screen-content.high-contrast #deviation-display.late { color: #ff4444; }
 .screen-content.high-contrast #deviation-display.early { color: #44ff44; }
 
-/* Estilos de Punta de Línea y Fin de Servicio */
+/* Estilos de Fin de Servicio */
 #deviation-display.service-finished {
     font-size: 32px;
     color: #555;

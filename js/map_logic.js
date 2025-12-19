@@ -7,10 +7,10 @@ const MapLogic = {
     editorMap: null,
     /** @type {L.Map|null} Referencia al mapa de navegación */
     navMap: null,
-    /** @type {Array<L.Marker>} Lista de marcadores de paradas en el editor */
-    editorMarkers: [],
-    /** @type {Array<L.CircleMarker>} Lista de marcadores intermedios (puntos de trazado) en el editor */
-    editorIntermediateMarkers: [],
+    /** @type {L.LayerGroup|null} Grupo de capas de marcadores de paradas en el editor */
+    editorMarkers: null,
+    /** @type {L.LayerGroup|null} Grupo de capas de marcadores intermedios en el editor */
+    editorIntermediateMarkers: null,
     /** @type {L.Polyline|null} Polilínea de la ruta en el editor */
     editorPolyline: null,
     /** @type {L.Polyline|null} Polilínea de la ruta en navegación */
@@ -34,6 +34,10 @@ const MapLogic = {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(this.editorMap);
+
+        // Inicializar LayerGroups para mejor rendimiento
+        this.editorMarkers = L.layerGroup().addTo(this.editorMap);
+        this.editorIntermediateMarkers = L.layerGroup().addTo(this.editorMap);
 
         this.editorMap.on('click', (e) => {
             onClickCallback(e.latlng);
@@ -63,10 +67,8 @@ const MapLogic = {
      * Limpia todas las capas (marcadores y polilíneas) del mapa del editor.
      */
     clearEditor: function() {
-        this.editorMarkers.forEach(m => this.editorMap.removeLayer(m));
-        this.editorMarkers = [];
-        this.editorIntermediateMarkers.forEach(m => this.editorMap.removeLayer(m));
-        this.editorIntermediateMarkers = [];
+        if (this.editorMarkers) this.editorMarkers.clearLayers();
+        if (this.editorIntermediateMarkers) this.editorIntermediateMarkers.clearLayers();
 
         if (this.editorPolyline) this.editorMap.removeLayer(this.editorPolyline);
         this.editorPolyline = null;
@@ -91,8 +93,9 @@ const MapLogic = {
 
         stops.forEach((stop, i) => {
             // 1. Añadir Marcador para la Parada
-            const marker = L.marker([stop.lat, stop.lng], { draggable: true }).addTo(this.editorMap);
-            marker.bindPopup(`<strong>${stop.name}</strong>`); // Se quitó .openPopup() para evitar centrado automático
+            // NOTA: No usamos .addTo(map) aquí para evitar repaints. Se añaden al LayerGroup.
+            const marker = L.marker([stop.lat, stop.lng], { draggable: true });
+            marker.bindPopup(`<strong>${stop.name}</strong>`);
 
             marker.on('dragend', function(event) {
                 const marker = event.target;
@@ -102,7 +105,7 @@ const MapLogic = {
                 }
             });
 
-            this.editorMarkers.push(marker);
+            if (this.editorMarkers) this.editorMarkers.addLayer(marker);
 
             // 2. Recolectar Puntos del Camino
             fullPathLatLngs.push([stop.lat, stop.lng]);
@@ -119,8 +122,9 @@ const MapLogic = {
                         fillColor: '#fff',
                         fillOpacity: 1,
                         weight: 1
-                    }).addTo(this.editorMap);
-                    this.editorIntermediateMarkers.push(dot);
+                    });
+
+                    if (this.editorIntermediateMarkers) this.editorIntermediateMarkers.addLayer(dot);
                 });
             }
         });
@@ -141,9 +145,10 @@ const MapLogic = {
      * @param {string} label - Etiqueta para el popup.
      */
     addEditorMarker: function(lat, lng, label) {
-        const marker = L.marker([lat, lng]).addTo(this.editorMap);
-        if(label) marker.bindPopup(label).openPopup();
-        this.editorMarkers.push(marker);
+        if (!this.editorMarkers) return;
+        const marker = L.marker([lat, lng]);
+        if(label) marker.bindPopup(label); // No openPopup immediate for perf
+        this.editorMarkers.addLayer(marker);
     },
 
 

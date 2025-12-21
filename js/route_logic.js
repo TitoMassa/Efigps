@@ -27,6 +27,23 @@ const RouteLogic = {
     },
 
     /**
+     * Calcula la distancia cuadrada aproximada entre dos puntos.
+     * Optimizado para comparaciones rápidas en bucles.
+     *
+     * @param {number} lat1 - Latitud punto 1
+     * @param {number} lon1 - Longitud punto 1
+     * @param {number} lat2 - Latitud punto 2
+     * @param {number} lon2 - Longitud punto 2
+     * @param {number} cosLat - Coseno de la latitud (precalculado)
+     * @returns {number} Distancia cuadrada aproximada (grados^2)
+     */
+    getApproxDistanceSq: function(lat1, lon1, lat2, lon2, cosLat) {
+        const dLat = lat2 - lat1;
+        const dLon = (lon2 - lon1) * cosLat;
+        return dLat * dLat + dLon * dLon;
+    },
+
+    /**
      * Convierte grados a radianes.
      *
      * @param {number} deg - El valor en grados.
@@ -165,7 +182,8 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity;
+        const cosLat = Math.cos(this.deg2rad(currentLat));
 
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
@@ -195,11 +213,11 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia del usuario a la línea del segmento (aproximación cuadrada para rendimiento)
+                const distSq = this.getApproxDistanceSq(currentLat, currentLng, p.x, p.y, cosLat);
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;

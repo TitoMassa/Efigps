@@ -27,6 +27,23 @@ const RouteLogic = {
     },
 
     /**
+     * Calcula la distancia cuadrada aproximada entre dos puntos usando aproximación equirectangular.
+     * Útil para comparaciones de distancia rápidas (evita raíz cuadrada y trigonometría compleja).
+     *
+     * @param {number} lat1 - Latitud del primer punto.
+     * @param {number} lon1 - Longitud del primer punto.
+     * @param {number} lat2 - Latitud del segundo punto.
+     * @param {number} lon2 - Longitud del segundo punto.
+     * @param {number} cosLat - Coseno de la latitud de referencia (usualmente lat1).
+     * @returns {number} La distancia cuadrada aproximada.
+     */
+    getApproxDistanceSq: function(lat1, lon1, lat2, lon2, cosLat) {
+        const x = (lon2 - lon1) * cosLat;
+        const y = lat2 - lat1;
+        return x * x + y * y;
+    },
+
+    /**
      * Convierte grados a radianes.
      *
      * @param {number} deg - El valor en grados.
@@ -165,7 +182,8 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity;
+        const cosLat = Math.cos(this.deg2rad(currentLat));
 
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
@@ -195,11 +213,11 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia del usuario a la línea del segmento (aproximada al cuadrado)
+                const distSq = this.getApproxDistanceSq(currentLat, currentLng, p.x, p.y, cosLat);
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;

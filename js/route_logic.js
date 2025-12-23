@@ -165,7 +165,10 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity; // Usamos distancia al cuadrado para comparar (más rápido)
+
+        // Factor de corrección de longitud basado en latitud actual (Equirectangular approximation)
+        const cosLat = Math.cos(this.deg2rad(currentLat));
 
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
@@ -195,11 +198,14 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia aproximada al cuadrado (evita Haversine en el bucle interno)
+                // dx ajustado por latitud
+                const dx = (p.y - currentLng) * cosLat;
+                const dy = p.x - currentLat;
+                const distSq = dx * dx + dy * dy;
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;

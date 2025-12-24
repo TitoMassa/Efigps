@@ -424,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // Encontrar la proyección más cercana en esta cadena específica de camino
-                    let minLocalDist = Infinity;
+                    let minLocalDistSq = Infinity;
                     let bestRatio = 0;
 
                     for(let j=0; j<points.length-1; j++) {
@@ -438,10 +438,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             {x: B.lat, y: B.lng}
                         );
 
-                        const dist = RouteLogic.getDistance(lat, lng, p.x, p.y);
+                        const distSq = RouteLogic.getSquaredDistance(lat, lng, p.x, p.y);
 
-                        if (dist < minLocalDist) {
-                            minLocalDist = dist;
+                        if (distSq < minLocalDistSq) {
+                            minLocalDistSq = distSq;
 
                             // Calcular ratio acumulativo
                             let distBefore = 0;

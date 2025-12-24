@@ -27,6 +27,27 @@ const RouteLogic = {
     },
 
     /**
+     * Calcula la distancia cuadrada con aproximación equirectangular entre dos puntos (lat/lng).
+     * Útil para comparaciones rápidas de distancia donde la precisión exacta no es crítica.
+     * Incluye corrección por latitud para mayor precisión geométrica.
+     *
+     * @param {number} lat1 - Latitud del primer punto.
+     * @param {number} lon1 - Longitud del primer punto.
+     * @param {number} lat2 - Latitud del segundo punto.
+     * @param {number} lon2 - Longitud del segundo punto.
+     * @returns {number} La distancia cuadrada aproximada.
+     */
+    getSquaredDistance: function(lat1, lon1, lat2, lon2) {
+        const dLat = lat1 - lat2;
+        const dLon = lon1 - lon2;
+        // Corrección de longitud basada en la latitud media (en radianes)
+        const meanLatRad = this.deg2rad((lat1 + lat2) / 2);
+        const cosLat = Math.cos(meanLatRad);
+        const correctedDLon = dLon * cosLat;
+        return dLat * dLat + correctedDLon * correctedDLon;
+    },
+
+    /**
      * Convierte grados a radianes.
      *
      * @param {number} deg - El valor en grados.
@@ -165,7 +186,7 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity;
 
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
@@ -195,11 +216,11 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia cuadrada del usuario a la línea del segmento
+                const distSq = this.getSquaredDistance(currentLat, currentLng, p.x, p.y);
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;

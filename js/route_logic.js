@@ -27,6 +27,23 @@ const RouteLogic = {
     },
 
     /**
+     * Calcula una aproximación de la distancia al cuadrado entre dos puntos.
+     * Útil para comparaciones rápidas donde la precisión geodésica exacta no es crítica (distancias cortas).
+     * Utiliza proyección equirectangular para evitar múltiples funciones trigonométricas y raíces cuadradas.
+     *
+     * @param {number} lat1
+     * @param {number} lon1
+     * @param {number} lat2
+     * @param {number} lon2
+     * @returns {number} Valor proporcional a la distancia al cuadrado.
+     */
+    getApproxDistanceSq: function(lat1, lon1, lat2, lon2) {
+        const x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2 * (Math.PI / 180));
+        const y = lat2 - lat1;
+        return x * x + y * y;
+    },
+
+    /**
      * Convierte grados a radianes.
      *
      * @param {number} deg - El valor en grados.
@@ -165,7 +182,7 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity;
 
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
@@ -195,11 +212,11 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia del usuario a la línea del segmento (Aproximación cuadrática para rendimiento)
+                const distSq = this.getApproxDistanceSq(currentLat, currentLng, p.x, p.y);
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
                     let distBefore = 0;

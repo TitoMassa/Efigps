@@ -385,6 +385,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Si no hay ruta cargada, no calculamos desviación ni lógica de tramo
             if (!state.currentRoute) return;
 
+            // Detectar fin de recorrido y cambiar automáticamente (Modo PRO + Auto)
+            if (state.activeItinerary && !state.manualMode && state.currentRoute.stops.length > 0) {
+                const lastStop = state.currentRoute.stops[state.currentRoute.stops.length - 1];
+                const distToEnd = RouteLogic.getDistance(lat, lng, lastStop.lat, lastStop.lng) * 1000; // metros
+
+                if (distToEnd < 50) {
+                    // Evitar rebotes si la siguiente ruta empieza exactamente donde termina esta
+                    // El cambio de ruta alejará el "último punto" (ahora será el de la nueva ruta)
+                    checkEndOfLegTransition();
+                    return; // Detener ejecución actual para evitar conflictos de renderizado
+                }
+            }
+
             // Calcular Desviación
             let result = null;
 

@@ -662,3 +662,78 @@ input:checked + .slider:before { transform: translateX(24px); }
 
 /* Utilidad */
 .hidden { display: none !important; }
+
+/* Login Modal Specifics */
+#login-modal {
+    background: rgba(0, 0, 0, 0.85); /* Darker overlay */
+}
+
+#login-modal .modal-content {
+    background: #fff;
+    color: #333;
+    border: 1px solid #444;
+}
+
+@media (prefers-color-scheme: dark) {
+    /* Use dark theme for modal if system prefers, or just default to light inside since we set bg white */
+}
+
+/* --- New Main Interface Layout --- */
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 16px;
+    font-weight: bold;
+    background: #000;
+    color: #fff;
+    border-bottom: 1px solid #333;
+    font-family: var(--font-main);
+}
+
+.top-bar #clock {
+    font-size: 1.1em;
+}
+
+.top-bar .status-icons {
+    display: flex;
+    gap: 8px;
+    font-size: 0.9em;
+}
+
+.info-bar {
+    background: #000;
+    color: #fff;
+    text-align: center;
+    padding: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid #333;
+}
+
+/* Update main display to match the look */
+.main-display {
+    background: #000;
+    color: #fff;
+    border: none;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#deviation-display {
+    font-size: 5em; /* Large by default */
+}
+
+/* Adjust High Contrast Mode Overrides if necessary */
+.screen-content.high-contrast .top-bar,
+.screen-content.high-contrast .info-bar {
+    background: #000;
+    border-bottom: 1px solid #fff;
+}

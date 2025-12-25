@@ -455,12 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let lineName = "???";
         let bannerName = "???";
 
-        if (state.activeItinerary && state.activeTripIndex >= 0) {
-            // In Pro Mode, extract Line Name from currentRoute name format "LineName (Direction)"
-            // Or ideally store line name separately.
-            // Currently els.routeName.textContent holds "LineName (Direction)"
-            // Banner is the "Direction" or "Route Name".
-
+        if (state.currentRoute && state.currentRoute.bannerName) {
+            // Pro Mode with stored details or manually selected route with banner info
+            lineName = state.currentRoute.lineName || "---";
+            bannerName = state.currentRoute.bannerName;
+        } else if (state.activeItinerary && state.activeTripIndex >= 0) {
+            // Fallback for Pro Mode if details missing
             const fullStr = state.currentRoute ? state.currentRoute.name : "---";
             // Heuristic: Split by '('
             const parts = fullStr.split('(');
@@ -872,6 +872,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const routeObj = {
             id: trip.id,
             name: `${lineName} (${trip.direction})`,
+            lineName: lineName,
+            bannerName: trip.routeOriginalName,
             stops: trip.stops
         };
 

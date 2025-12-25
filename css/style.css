@@ -658,6 +658,22 @@ input:checked + .slider:before { transform: translateX(24px); }
 @media (max-width: 600px) {
     .screen-frame { height: 250px; }
     .map-column { flex: 0 0 300px; }
+
+    /* Reduce font size for header info bar to prevent truncation */
+    .info-bar {
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    /* Reduce top bar font size */
+    .top-bar {
+        font-size: 13px;
+    }
+
+    /* Adjust main display if needed */
+    #deviation-display {
+        font-size: 4em;
+    }
 }
 
 /* Utilidad */

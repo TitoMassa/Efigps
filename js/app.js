@@ -45,7 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Itinerario Activo (Modo PRO)
         activeItinerary: null, // Lista completa de viajes
         activeTripIndex: -1,   // Índice del viaje actual
-        isServiceFinished: false // Indica si terminó todo el diagrama
+        isServiceFinished: false, // Indica si terminó todo el diagrama
+
+        // Driver Info
+        driver: {
+            driverId: null,
+            carNumber: null,
+            serviceId: null,
+            scheduleType: null
+        }
     };
 
     // Exponer estado para depuración
@@ -135,12 +143,47 @@ document.addEventListener('DOMContentLoaded', () => {
         // Cargar Rutas Guardadas
         loadSavedRoutes();
 
+        // Cargar Datos del Conductor
+        loadDriverFromStorage();
+
         // Iniciar GPS
         startGpsTracking();
 
         // Eventos
         setupEventListeners();
+
+        // Verificar Login
+        checkLoginStatus();
     }
+
+    function loadDriverFromStorage() {
+        const stored = localStorage.getItem('gps_driver');
+        if (stored) {
+            state.driver = JSON.parse(stored);
+        }
+    }
+
+    function checkLoginStatus() {
+        if (!state.driver.driverId) {
+            // Mostrar modal de login si no hay datos
+            const loginModal = document.getElementById('login-modal');
+            if (loginModal) loginModal.classList.remove('hidden');
+        } else {
+             updateInfoBar();
+        }
+    }
+
+    window.loginDriver = function(data) {
+        state.driver = data;
+        localStorage.setItem('gps_driver', JSON.stringify(data));
+        updateInfoBar();
+    };
+
+    window.logoutDriver = function() {
+        state.driver = { driverId: null, carNumber: null, serviceId: null, scheduleType: null };
+        localStorage.removeItem('gps_driver');
+        location.reload(); // Recargar para forzar login
+    };
 
     /**
      * Inicia el rastreo de ubicación GPS del navegador.
@@ -228,6 +271,47 @@ document.addEventListener('DOMContentLoaded', () => {
         // Vinculación Teclas Físicas (Arriba/Abajo)
         els.btnUp.addEventListener('click', () => handleArrowKey('up'));
         els.btnDown.addEventListener('click', () => handleArrowKey('down'));
+
+        // Login Events
+        const btnLogin = document.getElementById('btn-login');
+        if (btnLogin) {
+            btnLogin.addEventListener('click', handleLoginSubmit);
+        }
+
+        // User Button (Profile/Logout)
+        // Buscamos el botón de usuario (el segundo botón amarillo en la imagen original, o creamos uno nuevo)
+        // En el HTML actual no hay ID específico para ese botón, pero asumimos que el usuario
+        // lo quiere en el botón "m" o "PRO" o uno nuevo.
+        // El sketch muestra un botón "m".
+        // Vamos a vincular un botón existente o añadir un handler genérico si existiera.
+        // Por ahora, añadimos lógica para mostrar logout si se hace click en algún lugar específico o
+        // añadimos un botón de logout en el modal de PRO mode temporalmente.
+    }
+
+    function handleLoginSubmit() {
+        const legajo = document.getElementById('login-legajo').value;
+        const coche = document.getElementById('login-coche').value;
+        const servicio = document.getElementById('login-servicio').value;
+        const horario = document.getElementById('login-horario').value;
+
+        if (!legajo || legajo.length !== 5) {
+            alert("El legajo debe tener 5 dígitos.");
+            return;
+        }
+        if (!coche || !servicio || !horario) {
+            alert("Complete todos los campos.");
+            return;
+        }
+
+        const data = {
+            driverId: legajo,
+            carNumber: coche,
+            serviceId: servicio,
+            scheduleType: horario
+        };
+
+        window.loginDriver(data);
+        document.getElementById('login-modal').classList.add('hidden');
     }
 
     /**
@@ -359,6 +443,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentRoute) {
             updateDeviation(now);
         }
+
+        // Update Info Bar if data changed or just to ensure consistency
+        updateInfoBar();
+    }
+
+    function updateInfoBar() {
+        // Format: Line - Service - Banner - Car - Schedule - Driver
+        // Example: 106B - 1 - NUPU - 3222 - HABILES - 98538
+
+        let lineName = "???";
+        let bannerName = "???";
+
+        if (state.currentRoute && state.currentRoute.bannerName) {
+            // Pro Mode with stored details or manually selected route with banner info
+            lineName = state.currentRoute.lineName || "---";
+            bannerName = state.currentRoute.bannerName;
+        } else if (state.activeItinerary && state.activeTripIndex >= 0) {
+            // Fallback for Pro Mode if details missing
+            const fullStr = state.currentRoute ? state.currentRoute.name : "---";
+            // Heuristic: Split by '('
+            const parts = fullStr.split('(');
+            lineName = parts[0].trim();
+            bannerName = parts[1] ? parts[1].replace(')', '').trim() : "---";
+        } else {
+            // Standard Mode
+            lineName = "---";
+            bannerName = state.currentRoute ? state.currentRoute.name : "SIN BANDERA";
+        }
+
+        const srv = state.driver.serviceId || "?";
+        const car = state.driver.carNumber || "????";
+        const sch = state.driver.scheduleType || "????";
+        const leg = state.driver.driverId || "?????";
+
+        const infoStr = `${lineName} - ${srv} - ${bannerName} - ${car} - ${sch} - ${leg}`;
+        const el = document.getElementById('info-string');
+        if (el) el.textContent = infoStr;
     }
 
     /**
@@ -384,6 +505,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Si no hay ruta cargada, no calculamos desviación ni lógica de tramo
             if (!state.currentRoute) return;
+
+            // Detectar fin de recorrido y cambiar automáticamente (Modo PRO + Auto)
+            if (state.activeItinerary && !state.manualMode && state.currentRoute.stops.length > 0) {
+                const lastStop = state.currentRoute.stops[state.currentRoute.stops.length - 1];
+                const distToEnd = RouteLogic.getDistance(lat, lng, lastStop.lat, lastStop.lng) * 1000; // metros
+
+                if (distToEnd < 50) {
+                    // Evitar rebotes si la siguiente ruta empieza exactamente donde termina esta
+                    // El cambio de ruta alejará el "último punto" (ahora será el de la nueva ruta)
+                    checkEndOfLegTransition();
+                    return; // Detener ejecución actual para evitar conflictos de renderizado
+                }
+            }
 
             // Calcular Desviación
             let result = null;
@@ -738,6 +872,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const routeObj = {
             id: trip.id,
             name: `${lineName} (${trip.direction})`,
+            lineName: lineName,
+            bannerName: trip.routeOriginalName,
             stops: trip.stops
         };
 
@@ -1006,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'stop-item';
             div.innerHTML = `
                 <div class="stop-header">
-                    <strong>${idx === 0 ? 'Inicio' : idx === tempStops.length - 1 ? 'Fin' : 'Parada ' + (idx+1)}</strong>
+                    <input type="text" class="stop-name-input" value="${stop.name}" onchange="updateStopName(${idx}, this.value)" placeholder="Nombre Parada">
                 </div>
                 <div class="stop-details">
                     <span class="coord">Lat: ${stop.lat.toFixed(4)}, Lng: ${stop.lng.toFixed(4)}</span>
@@ -1060,6 +1196,17 @@ document.addEventListener('DOMContentLoaded', () => {
         tempStops[idx].time = val;
         if (val.length === 5) tempStops[idx].time = val + ":00";
         else tempStops[idx].time = val;
+    };
+
+    /**
+     * Actualiza el nombre de una parada.
+     * @param {number} idx - Índice de la parada.
+     * @param {string} val - Nuevo nombre.
+     */
+    window.updateStopName = function(idx, val) {
+        if (tempStops[idx]) {
+            tempStops[idx].name = val;
+        }
     };
 
     /** Wrapper global para deshacer dibujo */

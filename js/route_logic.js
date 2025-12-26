@@ -27,6 +27,22 @@ const RouteLogic = {
     },
 
     /**
+     * Calcula la distancia al cuadrado entre dos puntos usando aproximación equirectangular.
+     * Útil para comparaciones de distancia rápidas donde la precisión exacta no es crítica.
+     *
+     * @param {number} lat1 - Latitud del primer punto.
+     * @param {number} lon1 - Longitud del primer punto.
+     * @param {number} lat2 - Latitud del segundo punto.
+     * @param {number} lon2 - Longitud del segundo punto.
+     * @returns {number} Distancia al cuadrado (en unidades de grados² ajustados).
+     */
+    getSquaredDistance: function(lat1, lon1, lat2, lon2) {
+        const x = (lon2 - lon1) * Math.cos(this.deg2rad((lat1 + lat2) / 2));
+        const y = lat2 - lat1;
+        return x * x + y * y;
+    },
+
+    /**
      * Convierte grados a radianes.
      *
      * @param {number} deg - El valor en grados.
@@ -165,23 +181,14 @@ const RouteLogic = {
         // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
 
         let bestGlobalMatch = null;
-        let minGlobalDist = Infinity;
+        let minGlobalDistSq = Infinity;
 
+        // Primera pasada: Encontrar el punto más cercano usando distancia rápida (Euclidiana cuadrada aproximada)
         for (let i = 0; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
             const stopB = routeStops[i+1];
 
             const points = this.getSegmentPoints(stopA, stopB);
-
-            // Calcular longitudes de sub-segmentos (A->p1, p1->p2, ...)
-            let totalPathDist = 0;
-            const subSegmentDists = [];
-
-            for(let j=0; j<points.length-1; j++) {
-                const d = this.getDistance(points[j].lat, points[j].lng, points[j+1].lat, points[j+1].lng);
-                subSegmentDists.push(d);
-                totalPathDist += d;
-            }
 
             // Encontrar proyección del usuario en este camino detallado
             for(let j=0; j<points.length-1; j++) {
@@ -195,28 +202,45 @@ const RouteLogic = {
                     {x: B.lat, y: B.lng}
                 );
 
-                // Distancia del usuario a la línea del segmento
-                const dist = this.getDistance(currentLat, currentLng, p.x, p.y);
+                // Distancia rápida al cuadrado para comparación
+                const distSq = this.getSquaredDistance(currentLat, currentLng, p.x, p.y);
 
-                if (dist < minGlobalDist) {
-                    minGlobalDist = dist;
-
-                    // Calcular qué tan avanzado estamos en el camino PARADA-PARADA
-                    let distBefore = 0;
-                    for(let k=0; k<j; k++) distBefore += subSegmentDists[k];
-                    distBefore += subSegmentDists[j] * p.ratio; // Añadir parcial del sub-segmento actual
-
-                    const totalRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
+                if (distSq < minGlobalDistSq) {
+                    minGlobalDistSq = distSq;
 
                     bestGlobalMatch = {
                         stopIndex: i,
-                        ratio: totalRatio
+                        subSegmentIndex: j,
+                        ratioInSubSegment: p.ratio
                     };
                 }
             }
         }
 
         if (!bestGlobalMatch) return null;
+
+        // Segunda pasada: Calcular distancia precisa SOLO para el mejor segmento
+        const stopA = routeStops[bestGlobalMatch.stopIndex];
+        const stopB = routeStops[bestGlobalMatch.stopIndex+1];
+        const points = this.getSegmentPoints(stopA, stopB);
+
+        let totalPathDist = 0;
+        let distBefore = 0;
+
+        for(let j=0; j<points.length-1; j++) {
+            const d = this.getDistance(points[j].lat, points[j].lng, points[j+1].lat, points[j+1].lng);
+
+            if (j < bestGlobalMatch.subSegmentIndex) {
+                distBefore += d;
+            } else if (j === bestGlobalMatch.subSegmentIndex) {
+                distBefore += d * bestGlobalMatch.ratioInSubSegment;
+            }
+
+            totalPathDist += d;
+        }
+
+        const totalRatio = totalPathDist > 0 ? distBefore / totalPathDist : 0;
+        bestGlobalMatch.ratio = totalRatio; // Asignar para uso posterior
 
         // 2. Calcular Tiempo Esperado
         const startNode = routeStops[bestGlobalMatch.stopIndex];

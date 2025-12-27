@@ -140,13 +140,12 @@
                         <label>Vueltas:</label>
                         <input type="number" id="line-turns" step="0.5" min="0.5" placeholder="Ej: 4.5">
                     </div>
-                    <div class="form-group">
-                        <label>Espera Fin IDA (min):</label>
-                        <input type="number" id="line-rest-ida" min="0" placeholder="Ej: 10">
-                    </div>
-                    <div class="form-group">
-                        <label>Espera Fin VUELTA (min):</label>
-                        <input type="number" id="line-rest-vuelta" min="0" placeholder="Ej: 10">
+                    <!-- Contenedor dinámico de esperas -->
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Configuración de Esperas (minutos):</label>
+                        <div id="rests-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 200px; overflow-y: auto; padding: 5px; border: 1px solid #ccc;">
+                            <!-- Se generan dinámicamente -->
+                        </div>
                     </div>
                 </div>
 

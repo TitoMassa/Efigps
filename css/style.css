@@ -652,27 +652,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .route-actions button.btn-danger:hover { background: #fff5f5; border-color: #ffc9c9; color: #dc3545; }
 
 
-/* Optimización Móvil */
-@media (max-width: 600px) {
-    .screen-frame { height: 250px; }
-    .map-column { flex: 0 0 300px; }
-
-    /* Reduce font size for header info bar to prevent truncation */
-    .info-bar {
-        font-size: 12px;
-        padding: 6px;
-    }
-
-    /* Reduce top bar font size */
-    .top-bar {
-        font-size: 13px;
-    }
-
-    /* Adjust main display if needed */
-    #deviation-display {
-        font-size: 4em;
-    }
-}
 
 /* Utilidad */
 .hidden { display: none !important; }
@@ -742,4 +721,34 @@ input:checked + .slider:before { transform: translateX(24px); }
 .screen-content.high-contrast .info-bar {
     background: #000;
     border-bottom: 1px solid #fff;
+}
+
+/* Optimización Móvil (Moved to end for precedence) */
+@media (max-width: 600px) {
+    .screen-frame { height: 250px; }
+    .map-column { flex: 0 0 300px; }
+
+    /* Reduce font size for header info bar to prevent truncation */
+    .info-bar {
+        font-size: 9px !important; /* Force override */
+        padding: 4px;
+        line-height: 1.2;
+    }
+
+    /* Reduce top bar font size */
+    .top-bar {
+        font-size: 11px;
+        padding: 5px 8px;
+    }
+
+    /* Adjust main display if needed */
+    #deviation-display {
+        font-size: 2.5em;
+    }
+
+    /* Reduce footer font size */
+    .footer-info {
+        font-size: 12px;
+        padding: 5px 8px;
+    }
 }

@@ -122,6 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         tripsList: document.getElementById('trips-list'),
         btnBackLines: document.getElementById('btn-back-lines'),
 
+        // Menú de Usuario
+        userMenu: document.getElementById('user-menu-modal'),
+        closeUserMenu: document.getElementById('close-user-menu'),
+        btnMenuEditor: document.getElementById('btn-menu-editor'),
+        btnMenuLogout: document.getElementById('btn-menu-logout'),
+
         // Simulación
         simSlider: document.getElementById('sim-slider'),
         simStatus: document.getElementById('sim-status')
@@ -227,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Botones del Dispositivo
         els.btnContrast.addEventListener('click', toggleHighContrast);
         els.btnMap.addEventListener('click', toggleNavMap);
-        els.btnRouteEditor.addEventListener('click', openEditor);
+        els.btnRouteEditor.addEventListener('click', openUserMenu); // Cambiado a openUserMenu
         if (els.btnProMode) els.btnProMode.addEventListener('click', openProMode);
 
         // Cambio de Modo
@@ -235,6 +241,24 @@ document.addEventListener('DOMContentLoaded', () => {
              els.modeSwitch.addEventListener('change', (e) => {
                  toggleStopSelectionMode(e.target.checked);
              });
+        }
+
+        // Menú de Usuario
+        if (els.closeUserMenu) els.closeUserMenu.addEventListener('click', () => els.userMenu.classList.add('hidden'));
+
+        if (els.btnMenuEditor) {
+            els.btnMenuEditor.addEventListener('click', () => {
+                els.userMenu.classList.add('hidden');
+                openEditor();
+            });
+        }
+
+        if (els.btnMenuLogout) {
+            els.btnMenuLogout.addEventListener('click', () => {
+                if(confirm("¿Seguro que desea cerrar sesión?")) {
+                    window.logoutDriver();
+                }
+            });
         }
 
         // Editor Rutas
@@ -756,6 +780,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSimulationLoop() {
         // Disparar actualización manualmente
         updateClock();
+    }
+
+    /** Abre el menú de usuario */
+    function openUserMenu() {
+        els.userMenu.classList.remove('hidden');
     }
 
     // --- Lógica del Modo PRO ---

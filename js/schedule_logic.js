@@ -33,97 +33,89 @@ const ScheduleLogic = {
         const restVueltaSec = parseInt(config.restVuelta) * 60;
 
         // Calcular número total de tramos (legs)
-        // 1 Vuelta Completa = 2 Tramos (Ida + Vuelta)
-        // 0.5 Vuelta = 1 Tramo (Ida)
-        const totalLegs = Math.floor(turns * 2); // Ejemplo: 4.5 vueltas * 2 = 9 tramos
-
+        const totalLegs = Math.floor(turns * 2);
         if (totalLegs === 0) return [];
 
-        // Calcular tiempo total de descanso
-        let totalRestTimeSec = 0;
-        for (let i = 0; i < totalLegs - 1; i++) {
-            const isIda = (i % 2) === 0;
-            // Si terminamos Ida (i=0,2...), descansamos restIda.
-            // Si terminamos Vuelta (i=1,3...), descansamos restVuelta.
-            totalRestTimeSec += isIda ? restIdaSec : restVueltaSec;
-        }
+        // NUEVA LÓGICA: Duración de Vuelta Fija
+        // Calculamos cuánto dura una vuelta entera teórica (Ida + Vuelta)
+        // basándonos puramente en el tiempo total y la cantidad de vueltas.
+        const durationPerTurnSec = totalDurationSec / turns;
 
-        // Tiempo disponible para conducción
-        const totalDrivingTimeSec = totalDurationSec - totalRestTimeSec;
+        // Calculamos el tiempo total de descanso por vuelta
+        const restPerTurnSec = restIdaSec + restVueltaSec;
 
-        if (totalDrivingTimeSec <= 0) {
-            console.error("El tiempo de descanso excede la duración del servicio");
+        // Calculamos el tiempo disponible para manejar en una vuelta
+        const drivePerTurnSec = durationPerTurnSec - restPerTurnSec;
+
+        if (drivePerTurnSec <= 0) {
+            console.error("El tiempo de descanso excede la duración calculada para la vuelta");
             return [];
         }
 
-        // Calcular distancias para distribuir el tiempo proporcionalmente
+        // Distribuimos el tiempo de manejo entre Ida y Vuelta según sus distancias
         const distIda = this.calculateRouteDistance(routeIda.stops);
         const distVuelta = this.calculateRouteDistance(routeVuelta.stops);
+        const totalDist = distIda + distVuelta;
 
-        if (distIda === 0 && distVuelta === 0) return []; // Evitar div 0
+        if (totalDist === 0) return [];
 
-        // Calcular distancia total recorrrida en todo el diagrama
-        let totalDiagramDistance = 0;
-
-        // Sumar distancia exacta de los tramos que se van a generar (FIXED LOGIC)
-        for (let i = 0; i < totalLegs; i++) {
-            const isIda = (i % 2) === 0;
-            totalDiagramDistance += isIda ? distIda : distVuelta;
-        }
-
-        // Calcular tiempo por km (o unidad de distancia)
-        const timePerUnit = totalDrivingTimeSec / totalDiagramDistance;
-
-        // Tiempos asignados a cada tramo
-        const durationIda = Math.round(distIda * timePerUnit);
-        const durationVuelta = Math.round(distVuelta * timePerUnit);
+        // Tiempo asignado a Ida y Vuelta (restando los descansos del bloque fijo)
+        const durationIda = Math.round(drivePerTurnSec * (distIda / totalDist));
+        const durationVuelta = Math.round(drivePerTurnSec * (distVuelta / totalDist));
 
         // Generar los viajes
         const trips = [];
-        let currentSec = startSec;
 
+        // Iteramos por tramos (legs)
+        // Leg 0 = Ida 1, Leg 1 = Vuelta 1, Leg 2 = Ida 2, etc.
         for (let i = 0; i < totalLegs; i++) {
-            const isIda = (i % 2) === 0; // Pares son Ida (0, 2...), Impares Vuelta (1, 3...)
-            const duration = isIda ? durationIda : durationVuelta;
-            const routeTemplate = isIda ? routeIda : routeVuelta;
-            const tripName = isIda ? "Ida" : "Vuelta";
+            const isIda = (i % 2) === 0;
+            const turnIndex = Math.floor(i / 2); // En qué vuelta estamos (0, 1, 2...)
 
-            const tripStart = currentSec;
-            const tripEnd = currentSec + duration;
+            // Calculamos el tiempo base de inicio de esta vuelta
+            const turnStartSec = startSec + (turnIndex * durationPerTurnSec);
+
+            // Determinar Inicio y Fin de este Tramo específico
+            let legStartSec, legEndSec;
+
+            if (isIda) {
+                // Ida empieza al inicio del bloque de la vuelta
+                legStartSec = turnStartSec;
+                legEndSec = legStartSec + durationIda;
+            } else {
+                // Vuelta empieza después de la Ida + Descanso Ida
+                // (Nota: durationIda es el tiempo de manejo de la ida)
+                legStartSec = turnStartSec + durationIda + restIdaSec;
+                legEndSec = legStartSec + durationVuelta;
+            }
+
+            const tripName = isIda ? "Ida" : "Vuelta";
+            const routeTemplate = isIda ? routeIda : routeVuelta;
 
             // Generar paradas con horarios calculados
-            // Clonamos las paradas para no modificar la ruta original
             const tripStops = JSON.parse(JSON.stringify(routeTemplate.stops));
 
             // Asignar horario inicio y fin
-            tripStops[0].time = RouteLogic.secondsToTime(tripStart);
-            tripStops[tripStops.length - 1].time = RouteLogic.secondsToTime(tripEnd);
+            tripStops[0].time = RouteLogic.secondsToTime(legStartSec);
+            tripStops[tripStops.length - 1].time = RouteLogic.secondsToTime(legEndSec);
 
-            // Limpiar intermedios para forzar recálculo
+            // Limpiar intermedios
             for (let k = 1; k < tripStops.length - 1; k++) {
                 tripStops[k].time = "";
             }
 
-            // Recalcular intermedios usando la lógica existente
+            // Recalcular intermedios
             RouteLogic.calculateIntermediateTimes(tripStops);
 
             trips.push({
-                id: Date.now() + i, // ID único temporal
+                id: Date.now() + i,
                 direction: tripName,
                 legIndex: i + 1,
-                startTime: RouteLogic.secondsToTime(tripStart),
-                endTime: RouteLogic.secondsToTime(tripEnd),
+                startTime: RouteLogic.secondsToTime(legStartSec),
+                endTime: RouteLogic.secondsToTime(legEndSec),
                 stops: tripStops,
                 routeOriginalName: routeTemplate.name
             });
-
-            // Avanzar reloj (Sumar duración + descanso si no es el último)
-            currentSec += duration;
-            if (i < totalLegs - 1) {
-                // Si terminamos Ida, aplicamos restIda antes de la vuelta.
-                // Si terminamos Vuelta, aplicamos restVuelta antes de la siguiente ida.
-                currentSec += isIda ? restIdaSec : restVueltaSec;
-            }
         }
 
         return trips;

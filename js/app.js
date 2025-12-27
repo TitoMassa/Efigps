@@ -122,6 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         tripsList: document.getElementById('trips-list'),
         btnBackLines: document.getElementById('btn-back-lines'),
 
+        // Menú de Usuario
+        userMenu: document.getElementById('user-menu-modal'),
+        closeUserMenu: document.getElementById('close-user-menu'),
+        btnMenuEditor: document.getElementById('btn-menu-editor'),
+        btnMenuLogout: document.getElementById('btn-menu-logout'),
+
         // Simulación
         simSlider: document.getElementById('sim-slider'),
         simStatus: document.getElementById('sim-status')
@@ -227,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Botones del Dispositivo
         els.btnContrast.addEventListener('click', toggleHighContrast);
         els.btnMap.addEventListener('click', toggleNavMap);
-        els.btnRouteEditor.addEventListener('click', openEditor);
+        els.btnRouteEditor.addEventListener('click', openUserMenu); // Cambiado a openUserMenu
         if (els.btnProMode) els.btnProMode.addEventListener('click', openProMode);
 
         // Cambio de Modo
@@ -235,6 +241,24 @@ document.addEventListener('DOMContentLoaded', () => {
              els.modeSwitch.addEventListener('change', (e) => {
                  toggleStopSelectionMode(e.target.checked);
              });
+        }
+
+        // Menú de Usuario
+        if (els.closeUserMenu) els.closeUserMenu.addEventListener('click', () => els.userMenu.classList.add('hidden'));
+
+        if (els.btnMenuEditor) {
+            els.btnMenuEditor.addEventListener('click', () => {
+                els.userMenu.classList.add('hidden');
+                openEditor();
+            });
+        }
+
+        if (els.btnMenuLogout) {
+            els.btnMenuLogout.addEventListener('click', () => {
+                if(confirm("¿Seguro que desea cerrar sesión?")) {
+                    window.logoutDriver();
+                }
+            });
         }
 
         // Editor Rutas
@@ -605,11 +629,15 @@ document.addEventListener('DOMContentLoaded', () => {
             els.deviation.textContent = result.deviationStr;
 
             // Color/Estilo
-            els.deviation.classList.remove('late', 'early');
-            if (result.deviationSec >= 0) {
-                els.deviation.classList.add('early');
+            els.deviation.classList.remove('late', 'early', 'deviation-magenta', 'deviation-white');
+
+            const absDiff = Math.abs(result.deviationSec);
+            // Menos de 3 minutos (180 segundos) -> Magenta
+            if (absDiff < 180) {
+                els.deviation.classList.add('deviation-magenta');
             } else {
-                els.deviation.classList.add('late');
+                // 3 minutos o más (adelanto o atraso) -> Blanco
+                els.deviation.classList.add('deviation-white');
             }
 
             els.nextStop.textContent = result.nextStop;
@@ -754,6 +782,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateClock();
     }
 
+    /** Abre el menú de usuario */
+    function openUserMenu() {
+        els.userMenu.classList.remove('hidden');
+    }
+
     // --- Lógica del Modo PRO ---
 
     let editingLineId = null;
@@ -866,7 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Actualizar contador de vueltas (VH)
         const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
-        if (els.lapDisplay) els.lapDisplay.textContent = `VH ${lapNumber}`;
+        if (els.lapDisplay) els.lapDisplay.textContent = `${lapNumber}`;
 
         const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {

@@ -158,13 +158,12 @@ body {
     justify-content: center;
     align-items: center;
     font-size: 1rem; /* Base size reset */
-    font-family: var(--font-main);
+    font-family: 'Roboto Mono', monospace;
     font-weight: 700;
-    border-top: 2px solid #ccc;
-    border-bottom: 2px solid #ccc;
-    margin: 5px 0;
-    background: rgba(255,255,255,0.4);
-    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    border: none;
+    margin: 0;
+    background: #000;
+    text-shadow: none;
 }
 .screen-content.high-contrast .main-display {
     background: transparent;
@@ -184,10 +183,8 @@ body {
 }
 
 /* Colores de Desviación */
-#deviation-display.late { color: var(--highlight-red); }
-#deviation-display.early { color: #009900; }
-.screen-content.high-contrast #deviation-display.late { color: #ff4444; }
-.screen-content.high-contrast #deviation-display.early { color: #44ff44; }
+.deviation-magenta { color: #ff00ff; }
+.deviation-white { color: #ffffff; }
 
 /* Estilos de Fin de Servicio */
 #deviation-display.service-finished {
@@ -209,8 +206,9 @@ body {
     font-size: 15px;
     position: relative;
     z-index: 20;
-    background: rgba(244, 244, 244, 0.9);
-    border-top: 1px solid #ddd;
+    background: #000;
+    color: #fff;
+    border-top: none;
 }
 .screen-content.high-contrast .footer-info {
     background: rgba(0, 0, 0, 0.9);
@@ -654,27 +652,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .route-actions button.btn-danger:hover { background: #fff5f5; border-color: #ffc9c9; color: #dc3545; }
 
 
-/* Optimización Móvil */
-@media (max-width: 600px) {
-    .screen-frame { height: 250px; }
-    .map-column { flex: 0 0 300px; }
-
-    /* Reduce font size for header info bar to prevent truncation */
-    .info-bar {
-        font-size: 12px;
-        padding: 6px;
-    }
-
-    /* Reduce top bar font size */
-    .top-bar {
-        font-size: 13px;
-    }
-
-    /* Adjust main display if needed */
-    #deviation-display {
-        font-size: 4em;
-    }
-}
 
 /* Utilidad */
 .hidden { display: none !important; }
@@ -703,9 +680,9 @@ input:checked + .slider:before { transform: translateX(24px); }
     padding: 8px 12px;
     font-size: 16px;
     font-weight: bold;
-    background: #000;
-    color: #fff;
-    border-bottom: 1px solid #333;
+    background: #e0e0e0;
+    color: #000;
+    border-bottom: 1px solid #ccc;
     font-family: var(--font-main);
 }
 
@@ -733,15 +710,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 }
 
 /* Update main display to match the look */
-.main-display {
-    background: #000;
-    color: #fff;
-    border: none;
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+/* .main-display definition is unified above */
 
 #deviation-display {
     font-size: 3em; /* Ajustado para mejor legibilidad */
@@ -752,4 +721,34 @@ input:checked + .slider:before { transform: translateX(24px); }
 .screen-content.high-contrast .info-bar {
     background: #000;
     border-bottom: 1px solid #fff;
+}
+
+/* Optimización Móvil (Moved to end for precedence) */
+@media (max-width: 600px) {
+    .screen-frame { height: 250px; }
+    .map-column { flex: 0 0 300px; }
+
+    /* Reduce font size for header info bar to prevent truncation */
+    .info-bar {
+        font-size: 9px !important; /* Force override */
+        padding: 4px;
+        line-height: 1.2;
+    }
+
+    /* Reduce top bar font size */
+    .top-bar {
+        font-size: 11px;
+        padding: 5px 8px;
+    }
+
+    /* Adjust main display if needed */
+    #deviation-display {
+        font-size: 2.5em;
+    }
+
+    /* Reduce footer font size */
+    .footer-info {
+        font-size: 12px;
+        padding: 5px 8px;
+    }
 }

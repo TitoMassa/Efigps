@@ -605,11 +605,15 @@ document.addEventListener('DOMContentLoaded', () => {
             els.deviation.textContent = result.deviationStr;
 
             // Color/Estilo
-            els.deviation.classList.remove('late', 'early');
-            if (result.deviationSec >= 0) {
-                els.deviation.classList.add('early');
+            els.deviation.classList.remove('late', 'early', 'deviation-magenta', 'deviation-white');
+
+            const absDiff = Math.abs(result.deviationSec);
+            // Menos de 3 minutos (180 segundos) -> Magenta
+            if (absDiff < 180) {
+                els.deviation.classList.add('deviation-magenta');
             } else {
-                els.deviation.classList.add('late');
+                // 3 minutos o más (adelanto o atraso) -> Blanco
+                els.deviation.classList.add('deviation-white');
             }
 
             els.nextStop.textContent = result.nextStop;
@@ -866,7 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Actualizar contador de vueltas (VH)
         const lapNumber = Math.floor(state.activeTripIndex / 2) + 1;
-        if (els.lapDisplay) els.lapDisplay.textContent = `VH ${lapNumber}`;
+        if (els.lapDisplay) els.lapDisplay.textContent = `${lapNumber}`;
 
         const trip = state.activeItinerary[state.activeTripIndex];
         const routeObj = {

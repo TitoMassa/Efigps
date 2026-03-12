@@ -1272,12 +1272,16 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'stop-item';
             div.innerHTML = `
                 <div class="stop-header">
+                    <i class="fa-solid fa-location-dot"></i>
                     <input type="text" class="stop-name-input" value="${stop.name}" onchange="updateStopName(${idx}, this.value)" placeholder="Nombre Parada">
                 </div>
                 <div class="stop-details">
-                    <span class="coord">Lat: ${stop.lat.toFixed(4)}, Lng: ${stop.lng.toFixed(4)}</span>
+                    <div class="coord-wrapper">
+                        <i class="fa-solid fa-map-pin"></i>
+                        <span class="coord">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}</span>
+                    </div>
                     <div class="time-input-group">
-                        <label>Hora:</label>
+                        <i class="fa-regular fa-clock"></i>
                         <input type="time" step="1" value="${stop.time}" onchange="updateStopTime(${idx}, this.value)">
                     </div>
                 </div>
@@ -1288,24 +1292,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (idx < tempStops.length - 1) {
                 const drawContainer = document.createElement('div');
                 drawContainer.className = 'draw-container';
-                drawContainer.style.textAlign = 'center';
-                drawContainer.style.margin = '5px 0';
 
                 if (state.drawingMode && state.drawingRouteIndex === idx) {
                     // Controles de Dibujo Activos
                     drawContainer.innerHTML = `
-                        <div style="background: #eef; padding: 5px; border: 1px dashed #00f; border-radius: 5px;">
-                            <small>Dibujando tramo...</small><br>
-                            <button onclick="window.undoDrawing()" style="margin-right: 5px;">Deshacer Puntos</button>
-                            <button onclick="window.finishDrawing()">Terminar</button>
+                        <div class="drawing-active-box">
+                            <small><i class="fa-solid fa-pen-nib"></i> Dibujando tramo...</small>
+                            <div class="drawing-actions">
+                                <button class="btn-undo" onclick="window.undoDrawing()" title="Deshacer último punto"><i class="fa-solid fa-rotate-left"></i></button>
+                                <button class="btn-finish" onclick="window.finishDrawing()">Completar Trazado</button>
+                            </div>
                         </div>
                     `;
                 } else {
                     // Botón Iniciar Dibujo
                     const btnDraw = document.createElement('button');
-                    btnDraw.innerHTML = '<i class="fa-solid fa-pencil"></i> Dibujar Trazado';
-                    btnDraw.style.fontSize = '12px';
+                    btnDraw.className = 'draw-btn';
+
+                    // Show if path exists
+                    const hasPath = stop.pathNext && stop.pathNext.length > 0;
+                    if (hasPath) {
+                        btnDraw.innerHTML = '<i class="fa-solid fa-route"></i> Redibujar Trazado';
+                        btnDraw.style.color = '#28a745';
+                        btnDraw.style.borderColor = '#28a745';
+                    } else {
+                        btnDraw.innerHTML = '<i class="fa-solid fa-plus"></i> Añadir Trazado Real';
+                    }
+
                     btnDraw.onclick = () => startDrawing(idx);
+
                     // Deshabilitar si ya se está dibujando otro segmento
                     if (state.drawingMode) btnDraw.disabled = true;
 

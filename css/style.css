@@ -477,15 +477,28 @@ input:checked + .slider:before { transform: translateX(24px); }
     outline: none;
 }
 
-/* Lista de Paradas */
+/* Lista de Paradas - Estilo Seguidilla (Timeline) */
 #stops-list {
     flex-grow: 1;
-    border: 1px solid #eee;
+    border: 1px solid #e0e0e0;
     border-radius: 8px;
-    padding: 10px;
-    background: #f8f9fa;
+    padding: 15px 15px 15px 30px; /* Espacio extra a la izquierda para la línea */
+    background: #fdfdfd;
     overflow-y: auto;
-    min-height: 150px;
+    min-height: 200px;
+    position: relative;
+}
+
+/* Línea vertical de conexión principal */
+#stops-list::before {
+    content: '';
+    position: absolute;
+    top: 25px;
+    bottom: 25px;
+    left: 14px; /* Centro de la línea */
+    width: 3px;
+    background-color: #007bff;
+    z-index: 1;
 }
 
 .stop-item {
@@ -493,33 +506,173 @@ input:checked + .slider:before { transform: translateX(24px); }
     border: 1px solid #e9ecef;
     border-radius: 8px;
     padding: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    transition: transform 0.1s;
+    margin-bottom: 15px; /* Más espacio para ver la línea de conexión */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s, transform 0.1s;
+    position: relative;
+    z-index: 2; /* Por encima de la línea */
 }
-.stop-item:hover { transform: translateX(2px); }
+
+/* El "nodo" en la línea de tiempo para cada parada */
+.stop-item::before {
+    content: '';
+    position: absolute;
+    left: -21px; /* Posicionado sobre la línea vertical */
+    top: 15px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #007bff;
+    box-shadow: 0 0 0 3px #fdfdfd; /* Para limpiar la línea vertical alrededor del punto */
+    z-index: 3;
+}
+
+.stop-item:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    border-color: #d1e7dd;
+}
 
 .stop-header {
-    margin-bottom: 8px;
-    color: #007bff;
-    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+
+.stop-header i {
+    color: #007bff;
+    font-size: 14px;
+}
+
+.stop-name-input {
+    flex-grow: 1;
+    border: 1px solid transparent;
+    border-bottom: 1px dashed #ccc;
+    border-radius: 0;
+    padding: 4px 2px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    background: transparent;
+    transition: border-color 0.2s;
+}
+
+.stop-name-input:focus {
+    outline: none;
+    border-bottom-color: #007bff;
+    background: #f8f9fa;
+}
+
 .stop-details {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 22px; /* Alinear con el texto superior */
 }
-.coord { color: #888; font-size: 12px; font-family: monospace; }
+
+.coord-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #888;
+}
+
+.coord { font-size: 11px; font-family: monospace; background: #f4f4f4; padding: 2px 6px; border-radius: 4px;}
+
+.time-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-input-group label {
+    font-size: 13px;
+    color: #555;
+    margin: 0;
+}
 
 .time-input-group input {
-    border: 1px solid #ddd;
+    border: 1px solid #ced4da;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     font-family: monospace;
+    font-size: 14px;
     color: #333;
+    transition: border-color 0.2s;
 }
+.time-input-group input:focus {
+    border-color: #80bdff;
+    outline: none;
+}
+
+/* Contenedor del botón de dibujo intercalado */
+.draw-container {
+    position: relative;
+    padding: 5px 0 20px 0;
+    margin-left: -5px; /* Ajuste visual contra la línea de tiempo */
+    z-index: 2;
+}
+
+.draw-btn {
+    background: #fff;
+    border: 1px dashed #007bff;
+    color: #007bff;
+    border-radius: 20px;
+    padding: 6px 15px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.draw-btn:hover:not(:disabled) {
+    background: #e6f2ff;
+}
+
+.draw-btn:disabled {
+    border-color: #ccc;
+    color: #aaa;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+.drawing-active-box {
+    background: #eef2ff;
+    border: 1px solid #baccff;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.drawing-active-box small {
+    color: #004085;
+    font-weight: bold;
+}
+
+.drawing-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.drawing-actions button {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-undo { background: #ffc107; color: #333; }
+.btn-undo:hover { background: #e0a800; }
+.btn-finish { background: #28a745; color: #fff; }
+.btn-finish:hover { background: #218838; }
 
 /* Acciones del Editor */
 .editor-actions {

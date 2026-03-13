@@ -20,6 +20,16 @@ const MapLogic = {
     /** @type {Array<Object>} Lista de marcadores de navegación con metadatos { marker, stopName } */
     navMarkers: [],
 
+    // Propiedades para Mapa de Pasajeros
+    /** @type {L.Map|null} Referencia al mapa de pasajeros */
+    passengerMap: null,
+    /** @type {L.Polyline|null} Polilínea de la ruta en mapa de pasajeros */
+    passengerPolyline: null,
+    /** @type {L.CircleMarker|null} Marcador de la posición del usuario en mapa de pasajeros */
+    passengerUserMarker: null,
+    /** @type {Array<L.CircleMarker>} Lista de marcadores de paradas en el mapa de pasajeros */
+    passengerMarkers: [],
+
     /**
      * Inicializa el mapa del editor en el elemento DOM especificado.
      * Configura la vista inicial y el manejo de eventos de clic.
@@ -146,6 +156,92 @@ const MapLogic = {
         this.editorMarkers.push(marker);
     },
 
+
+    // Métodos de Modo Pasajeros
+
+    /**
+     * Inicializa el mapa para la vista de pasajeros.
+     *
+     * @param {string} elementId - El ID del elemento HTML contenedor del mapa.
+     */
+    initPassengerMap: function(elementId) {
+        if (this.passengerMap) return;
+
+        this.passengerMap = L.map(elementId, {
+            zoomControl: true, // Permitir zoom al pasajero
+            attributionControl: false
+        }).setView([-34.6037, -58.3816], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.passengerMap);
+    },
+
+    /**
+     * Carga la ruta actual en el mapa de pasajeros.
+     *
+     * @param {Array<Object>} stops - Lista de paradas de la ruta.
+     */
+    loadRouteOnPassengerMap: function(stops) {
+        if (!this.passengerMap || !stops || stops.length === 0) return;
+
+        // Limpiar capas anteriores
+        if (this.passengerPolyline) this.passengerMap.removeLayer(this.passengerPolyline);
+        this.passengerMarkers.forEach(m => this.passengerMap.removeLayer(m));
+        this.passengerMarkers = [];
+
+        // Construir polilínea detallada
+        const latlngs = [];
+        stops.forEach(stop => {
+            latlngs.push([stop.lat, stop.lng]);
+            if (stop.pathNext && Array.isArray(stop.pathNext)) {
+                stop.pathNext.forEach(pt => latlngs.push([pt.lat, pt.lng]));
+            }
+        });
+
+        // Polilínea roja para el tema de pasajeros
+        this.passengerPolyline = L.polyline(latlngs, {color: '#d00000', weight: 5}).addTo(this.passengerMap);
+
+        // Añadir marcadores
+        stops.forEach((stop) => {
+             const marker = L.circleMarker([stop.lat, stop.lng], {
+                 color: '#fff',
+                 fillColor: '#666',
+                 fillOpacity: 1,
+                 weight: 2,
+                 radius: 6
+             }).addTo(this.passengerMap);
+
+             marker.bindPopup(`<strong>${stop.name}</strong>`);
+             this.passengerMarkers.push(marker);
+        });
+
+        if (latlngs.length > 0) {
+            this.passengerMap.fitBounds(this.passengerPolyline.getBounds());
+        }
+    },
+
+    /**
+     * Actualiza la posición del colectivo en el mapa de pasajeros.
+     *
+     * @param {number} lat - Latitud actual.
+     * @param {number} lng - Longitud actual.
+     */
+    updatePassengerUserPosition: function(lat, lng) {
+        if (!this.passengerMap) return;
+
+        if (!this.passengerUserMarker) {
+            // Icono de un "colectivo" (en este caso un círculo más grande y distintivo)
+            this.passengerUserMarker = L.circleMarker([lat, lng], {
+                color: '#fff',
+                fillColor: '#d00000',
+                radius: 10,
+                fillOpacity: 1,
+                weight: 3
+            }).addTo(this.passengerMap);
+            this.passengerUserMarker.bindPopup("<strong>Colectivo Actual</strong>");
+        } else {
+            this.passengerUserMarker.setLatLng([lat, lng]);
+        }
+    },
 
     // Métodos de Navegación
 

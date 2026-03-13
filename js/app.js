@@ -131,8 +131,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Simulación
         simSlider: document.getElementById('sim-slider'),
-        simStatus: document.getElementById('sim-status')
+        simStatus: document.getElementById('sim-status'),
+
+        // Modo Pasajeros
+        btnPassengerMode: document.getElementById('btn-passenger-mode'),
+        passengerModal: document.getElementById('passenger-modal'),
+        btnClosePassenger: document.getElementById('btn-close-passenger'),
+        passengerSelectLine: document.getElementById('passenger-select-line'),
+        passengerSelectRoute: document.getElementById('passenger-select-route'),
+        passengerSelectStop: document.getElementById('passenger-select-stop'),
+        passengerEtaList: document.getElementById('passenger-eta-list'),
+        btnPassengerMap: document.getElementById('btn-passenger-map'),
+        passengerMapContainer: document.getElementById('passenger-map-container')
     };
+
+    let passengerUpdateInterval = null;
+    let passengerMapVisible = false;
 
     // --- Inicialización ---
 
@@ -303,6 +317,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnLogin = document.getElementById('btn-login');
         if (btnLogin) {
             btnLogin.addEventListener('click', handleLoginSubmit);
+        }
+
+        // Passenger Mode Events
+        if (els.btnPassengerMode) {
+            els.btnPassengerMode.addEventListener('click', openPassengerMode);
+        }
+        if (els.btnClosePassenger) {
+            els.btnClosePassenger.addEventListener('click', closePassengerMode);
+        }
+        if (els.passengerSelectLine) {
+            els.passengerSelectLine.addEventListener('change', updatePassengerRoutes);
+        }
+        if (els.passengerSelectRoute) {
+            els.passengerSelectRoute.addEventListener('change', updatePassengerStops);
+        }
+        if (els.passengerSelectStop) {
+            els.passengerSelectStop.addEventListener('change', () => {
+                updatePassengerETAs();
+                if (passengerMapVisible) {
+                    updatePassengerMap();
+                }
+            });
+        }
+        if (els.btnPassengerMap) {
+            els.btnPassengerMap.addEventListener('click', togglePassengerMap);
         }
 
         // User Button (Profile/Logout)
@@ -788,6 +827,291 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Abre el menú de usuario */
     function openUserMenu() {
         els.userMenu.classList.remove('hidden');
+    }
+
+    // --- Lógica del Modo Pasajeros ---
+
+    function openPassengerMode() {
+        els.passengerModal.classList.remove('hidden');
+        populatePassengerLines();
+
+        // Iniciar intervalo de actualización
+        if (passengerUpdateInterval) clearInterval(passengerUpdateInterval);
+        passengerUpdateInterval = setInterval(() => {
+            if (!els.passengerModal.classList.contains('hidden')) {
+                updatePassengerETAs();
+                if (passengerMapVisible) updatePassengerMapLocation();
+            }
+        }, 1000);
+    }
+
+    function closePassengerMode() {
+        els.passengerModal.classList.add('hidden');
+        if (passengerUpdateInterval) {
+            clearInterval(passengerUpdateInterval);
+            passengerUpdateInterval = null;
+        }
+        passengerMapVisible = false;
+        els.passengerMapContainer.classList.add('hidden');
+    }
+
+    function populatePassengerLines() {
+        els.passengerSelectLine.innerHTML = '<option value="">Seleccione Línea</option>';
+        els.passengerSelectRoute.innerHTML = '<option value="">Seleccione Bandera</option>';
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute) {
+            els.passengerEtaList.innerHTML = '<p style="text-align:center; padding: 20px;">No hay colectivos en circulación en este momento.</p>';
+            return;
+        }
+
+        // Determinar línea actual (del currentRoute o fallback)
+        let currentLineName = state.currentRoute.lineName || "";
+        if (!currentLineName && state.activeItinerary) {
+            const parts = state.currentRoute.name.split('(');
+            currentLineName = parts[0].trim();
+        }
+
+        if (currentLineName) {
+            const opt = document.createElement('option');
+            opt.value = currentLineName;
+            opt.textContent = currentLineName;
+            els.passengerSelectLine.appendChild(opt);
+        } else {
+            // Si es manual sin nombre de línea, ponemos una genérica o el nombre de la ruta
+            const opt = document.createElement('option');
+            opt.value = "LINEA ACTUAL";
+            opt.textContent = "Línea Actual";
+            els.passengerSelectLine.appendChild(opt);
+        }
+
+        // Autoseleccionar la única opción
+        if (els.passengerSelectLine.options.length > 1) {
+            els.passengerSelectLine.selectedIndex = 1;
+            updatePassengerRoutes();
+        }
+    }
+
+    function updatePassengerRoutes() {
+        els.passengerSelectRoute.innerHTML = '<option value="">Seleccione Bandera</option>';
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute || els.passengerSelectLine.value === "") return;
+
+        // Si estamos en Modo PRO (Itinerario Activo), mostrar el tramo actual y los futuros del mismo servicio
+        if (state.activeItinerary && state.activeTripIndex >= 0) {
+            const addedBanners = new Set();
+
+            // Iterar desde el viaje actual hasta el final del itinerario
+            for (let i = state.activeTripIndex; i < state.activeItinerary.length; i++) {
+                const trip = state.activeItinerary[i];
+                const bannerName = trip.routeOriginalName || trip.direction; // O usar trip.direction ('Ida', 'Vuelta') si prefiere
+
+                // Evitar duplicados (ej: no mostrar dos veces "VUELTA" si hay varias vueltas, o sí, dependiendo de la necesidad)
+                // Usaremos un identificador único que incluya el nombre de la bandera y el tramo para distinguirlos
+                const uniqueName = `${bannerName} (Tramo ${i + 1})`;
+
+                const opt = document.createElement('option');
+                opt.value = i; // Guardamos el índice del viaje en el itinerario
+                opt.textContent = uniqueName;
+
+                // Marcar el actual
+                if (i === state.activeTripIndex) {
+                    opt.textContent = `${bannerName} (Actual)`;
+                }
+
+                els.passengerSelectRoute.appendChild(opt);
+            }
+        } else {
+            // Modo Manual Simple: Solo existe la ruta actual
+            let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
+            const opt = document.createElement('option');
+            opt.value = "current"; // Identificador especial para modo simple
+            opt.textContent = currentBannerName;
+            els.passengerSelectRoute.appendChild(opt);
+        }
+
+        // Autoseleccionar la primera opción (la actual)
+        if (els.passengerSelectRoute.options.length > 1) {
+            els.passengerSelectRoute.selectedIndex = 1;
+            updatePassengerStops();
+        }
+    }
+
+    function updatePassengerStops() {
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute || els.passengerSelectRoute.value === "") return;
+
+        const val = els.passengerSelectRoute.value;
+        let stopsToUse = state.currentRoute.stops;
+
+        if (val !== "current" && state.activeItinerary) {
+            const tripIndex = parseInt(val, 10);
+            if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
+                stopsToUse = state.activeItinerary[tripIndex].stops;
+            }
+        }
+
+        stopsToUse.forEach((stop, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.textContent = stop.name;
+            els.passengerSelectStop.appendChild(opt);
+        });
+
+        // Initialize Map if it's supposed to be visible but we just loaded stops
+        if (passengerMapVisible) {
+             MapLogic.initPassengerMap('passenger-map');
+             MapLogic.loadRouteOnPassengerMap(stopsToUse);
+             updatePassengerMapLocation();
+        }
+    }
+
+    function updatePassengerETAs() {
+        const stopIndexStr = els.passengerSelectStop.value;
+        const routeVal = els.passengerSelectRoute.value;
+
+        if (stopIndexStr === "" || !state.currentRoute) {
+            els.passengerEtaList.innerHTML = '';
+            return;
+        }
+
+        // Determinar qué lista de paradas estamos usando (viaje actual o viaje futuro)
+        let stopsToUse = state.currentRoute.stops;
+        let isFutureTrip = false;
+
+        if (routeVal !== "current" && state.activeItinerary) {
+            const selectedTripIndex = parseInt(routeVal, 10);
+            if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
+                isFutureTrip = true;
+            }
+            if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
+                stopsToUse = state.activeItinerary[selectedTripIndex].stops;
+            }
+        }
+
+        const targetStopIndex = parseInt(stopIndexStr, 10);
+        const targetStop = stopsToUse[targetStopIndex];
+
+        // 1. Obtener tiempo programado de la parada destino
+        const targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
+
+        // 2. Obtener posición actual y desviación del colectivo (siempre relativo al viaje actual)
+        const pos = getCurrentPosition();
+        if (!pos) {
+            els.passengerEtaList.innerHTML = '<p style="text-align:center;">Esperando señal GPS...</p>';
+            return;
+        }
+
+        const now = new Date();
+        const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+        let deviationSec = 0;
+        let isTerminalAndEarly = false;
+        let expectedCurrentLocationTimeSec = null;
+
+        // Intentar calcular desviación real usando la lógica principal (en el tramo actual)
+        const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+
+        if (devResult) {
+            deviationSec = devResult.deviationSec; // (+) es adelantado, (-) es atrasado
+            expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
+
+            // Verificar si estamos en Punta de Línea del VIAJE ACTUAL (primer parada, < 50m)
+            const startStop = state.currentRoute.stops[0];
+            const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
+            if (dist <= 50 && deviationSec > 0) {
+                isTerminalAndEarly = true;
+            }
+        } else {
+             els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
+             return;
+        }
+
+        // Si ya pasó la parada destino en el viaje actual (y no es un viaje futuro)
+        if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
+            els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
+            return;
+        }
+
+        // Cálculo de ETA
+        // Diferencia entre horario programado del destino (puede ser de un viaje futuro)
+        // y el horario programado de la ubicación actual.
+        let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
+
+        // Si el viaje es futuro y cruza la medianoche (etaSec es negativo a pesar de ser futuro)
+        if (etaSec < 0 && isFutureTrip) {
+            etaSec += 86400; // Sumar 24 horas en segundos
+        }
+
+        // Si el colectivo está adelantado en punta de línea actual, DEBE SUMARSE el adelanto para que el ETA refleje el tiempo de espera extra.
+        if (isTerminalAndEarly) {
+            etaSec += deviationSec;
+        }
+
+        // Formatear el ETA
+        const etaMinutes = Math.floor(etaSec / 60);
+        let etaDisplay = "";
+
+        if (etaMinutes < 2) {
+            etaDisplay = "Arribando";
+        } else {
+            etaDisplay = `${etaMinutes} min. aprox.`;
+        }
+
+        // Renderizar Tarjeta
+        const lineName = els.passengerSelectLine.options[els.passengerSelectLine.selectedIndex].text;
+        const bannerName = els.passengerSelectRoute.options[els.passengerSelectRoute.selectedIndex].text;
+        const stopName = targetStop.name;
+
+        els.passengerEtaList.innerHTML = `
+            <div class="eta-card">
+                <div class="eta-card-left">
+                    <div class="eta-line">${lineName}</div>
+                    <div class="eta-route">${bannerName}</div>
+                    <div class="eta-stop">${stopName}</div>
+                </div>
+                <div class="eta-card-right">
+                    ${etaDisplay}
+                </div>
+            </div>
+        `;
+    }
+
+    function togglePassengerMap() {
+        passengerMapVisible = !passengerMapVisible;
+        if (passengerMapVisible) {
+            els.passengerMapContainer.classList.remove('hidden');
+            MapLogic.initPassengerMap('passenger-map');
+            setTimeout(() => {
+                MapLogic.passengerMap.invalidateSize();
+                if (state.currentRoute) {
+                    let stopsToUse = state.currentRoute.stops;
+                    const val = els.passengerSelectRoute.value;
+                    if (val !== "current" && state.activeItinerary) {
+                        const tripIndex = parseInt(val, 10);
+                        if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
+                            stopsToUse = state.activeItinerary[tripIndex].stops;
+                        }
+                    }
+                    MapLogic.loadRouteOnPassengerMap(stopsToUse);
+                    updatePassengerMapLocation();
+                }
+            }, 200);
+        } else {
+            els.passengerMapContainer.classList.add('hidden');
+        }
+    }
+
+    function updatePassengerMapLocation() {
+        const pos = getCurrentPosition();
+        if (pos && passengerMapVisible) {
+            MapLogic.updatePassengerUserPosition(pos.lat, pos.lng);
+        }
     }
 
     // --- Lógica del Modo PRO ---

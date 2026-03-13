@@ -77,6 +77,11 @@
 
         <!-- Controles de Simulación (Externos al dispositivo simulado) -->
         <div class="sim-controls">
+            <!-- Botón de Modo Pasajeros -->
+            <button id="btn-passenger-mode" class="btn-primary" style="background-color: #d00000; margin-bottom: 20px; font-size: 16px; font-weight: bold; width: 100%;">
+                <i class="fa-solid fa-users"></i> Vista Pasajeros
+            </button>
+
             <h3>Modo Simulación</h3>
             <label>Progreso de Bandera:</label>
             <input type="range" id="sim-slider" min="0" max="100" value="0" disabled>
@@ -244,6 +249,50 @@
                 <button id="btn-menu-logout" class="btn-danger" style="width: 100%; padding: 15px;">
                     <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modo Pasajeros -->
+    <div id="passenger-modal" class="modal hidden" style="z-index: 2500;">
+        <div class="modal-content passenger-theme" style="max-width: 500px;">
+            <div class="passenger-header">
+                <button id="btn-close-passenger" class="btn-icon"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2>Próximos arribos</h2>
+            </div>
+
+            <div class="passenger-controls">
+                <button id="btn-passenger-map" class="btn-circle-red"><i class="fa-solid fa-map"></i></button>
+            </div>
+
+            <div class="passenger-filters">
+                <div class="form-group">
+                    <label>Línea</label>
+                    <select id="passenger-select-line">
+                        <option value="">Seleccione Línea</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Bandera</label>
+                    <select id="passenger-select-route">
+                        <option value="">Seleccione Bandera</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Su Parada</label>
+                    <select id="passenger-select-stop">
+                        <option value="">Seleccione Parada</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="passenger-list-container">
+                <div id="passenger-eta-list" class="eta-list">
+                    <!-- Cards will be generated here -->
+                </div>
+                <div id="passenger-map-container" class="hidden">
+                    <div id="passenger-map"></div>
+                </div>
             </div>
         </div>
     </div>

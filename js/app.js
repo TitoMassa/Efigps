@@ -131,8 +131,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Simulación
         simSlider: document.getElementById('sim-slider'),
-        simStatus: document.getElementById('sim-status')
+        simStatus: document.getElementById('sim-status'),
+
+        // Modo Pasajeros
+        btnPassengerMode: document.getElementById('btn-passenger-mode'),
+        passengerModal: document.getElementById('passenger-modal'),
+        btnClosePassenger: document.getElementById('btn-close-passenger'),
+        passengerSelectLine: document.getElementById('passenger-select-line'),
+        passengerSelectRoute: document.getElementById('passenger-select-route'),
+        passengerSelectStop: document.getElementById('passenger-select-stop'),
+        passengerEtaList: document.getElementById('passenger-eta-list'),
+        btnPassengerMap: document.getElementById('btn-passenger-map'),
+        passengerMapContainer: document.getElementById('passenger-map-container')
     };
+
+    let passengerUpdateInterval = null;
+    let passengerMapVisible = false;
 
     // --- Inicialización ---
 
@@ -303,6 +317,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnLogin = document.getElementById('btn-login');
         if (btnLogin) {
             btnLogin.addEventListener('click', handleLoginSubmit);
+        }
+
+        // Passenger Mode Events
+        if (els.btnPassengerMode) {
+            els.btnPassengerMode.addEventListener('click', openPassengerMode);
+        }
+        if (els.btnClosePassenger) {
+            els.btnClosePassenger.addEventListener('click', closePassengerMode);
+        }
+        if (els.passengerSelectLine) {
+            els.passengerSelectLine.addEventListener('change', updatePassengerRoutes);
+        }
+        if (els.passengerSelectRoute) {
+            els.passengerSelectRoute.addEventListener('change', updatePassengerStops);
+        }
+        if (els.passengerSelectStop) {
+            els.passengerSelectStop.addEventListener('change', () => {
+                updatePassengerETAs();
+                if (passengerMapVisible) {
+                    updatePassengerMap();
+                }
+            });
+        }
+        if (els.btnPassengerMap) {
+            els.btnPassengerMap.addEventListener('click', togglePassengerMap);
         }
 
         // User Button (Profile/Logout)
@@ -788,6 +827,224 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Abre el menú de usuario */
     function openUserMenu() {
         els.userMenu.classList.remove('hidden');
+    }
+
+    // --- Lógica del Modo Pasajeros ---
+
+    function openPassengerMode() {
+        els.passengerModal.classList.remove('hidden');
+        populatePassengerLines();
+
+        // Iniciar intervalo de actualización
+        if (passengerUpdateInterval) clearInterval(passengerUpdateInterval);
+        passengerUpdateInterval = setInterval(() => {
+            if (!els.passengerModal.classList.contains('hidden')) {
+                updatePassengerETAs();
+                if (passengerMapVisible) updatePassengerMapLocation();
+            }
+        }, 1000);
+    }
+
+    function closePassengerMode() {
+        els.passengerModal.classList.add('hidden');
+        if (passengerUpdateInterval) {
+            clearInterval(passengerUpdateInterval);
+            passengerUpdateInterval = null;
+        }
+        passengerMapVisible = false;
+        els.passengerMapContainer.classList.add('hidden');
+    }
+
+    function populatePassengerLines() {
+        els.passengerSelectLine.innerHTML = '<option value="">Seleccione Línea</option>';
+        els.passengerSelectRoute.innerHTML = '<option value="">Seleccione Bandera</option>';
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute) {
+            els.passengerEtaList.innerHTML = '<p style="text-align:center; padding: 20px;">No hay colectivos en circulación en este momento.</p>';
+            return;
+        }
+
+        // Determinar línea actual (del currentRoute o fallback)
+        let currentLineName = state.currentRoute.lineName || "";
+        if (!currentLineName && state.activeItinerary) {
+            const parts = state.currentRoute.name.split('(');
+            currentLineName = parts[0].trim();
+        }
+
+        if (currentLineName) {
+            const opt = document.createElement('option');
+            opt.value = currentLineName;
+            opt.textContent = currentLineName;
+            els.passengerSelectLine.appendChild(opt);
+        } else {
+            // Si es manual sin nombre de línea, ponemos una genérica o el nombre de la ruta
+            const opt = document.createElement('option');
+            opt.value = "LINEA ACTUAL";
+            opt.textContent = "Línea Actual";
+            els.passengerSelectLine.appendChild(opt);
+        }
+
+        // Autoseleccionar la única opción
+        if (els.passengerSelectLine.options.length > 1) {
+            els.passengerSelectLine.selectedIndex = 1;
+            updatePassengerRoutes();
+        }
+    }
+
+    function updatePassengerRoutes() {
+        els.passengerSelectRoute.innerHTML = '<option value="">Seleccione Bandera</option>';
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute || els.passengerSelectLine.value === "") return;
+
+        let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
+
+        const opt = document.createElement('option');
+        opt.value = currentBannerName;
+        opt.textContent = currentBannerName;
+        els.passengerSelectRoute.appendChild(opt);
+
+        // Autoseleccionar
+        if (els.passengerSelectRoute.options.length > 1) {
+            els.passengerSelectRoute.selectedIndex = 1;
+            updatePassengerStops();
+        }
+    }
+
+    function updatePassengerStops() {
+        els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
+        els.passengerEtaList.innerHTML = '';
+
+        if (!state.currentRoute || els.passengerSelectRoute.value === "") return;
+
+        state.currentRoute.stops.forEach((stop, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.textContent = stop.name;
+            els.passengerSelectStop.appendChild(opt);
+        });
+
+        // Initialize Map if it's supposed to be visible but we just loaded stops
+        if (passengerMapVisible) {
+             MapLogic.initPassengerMap('passenger-map');
+             MapLogic.loadRouteOnPassengerMap(state.currentRoute.stops);
+        }
+    }
+
+    function updatePassengerETAs() {
+        const stopIndexStr = els.passengerSelectStop.value;
+        if (stopIndexStr === "" || !state.currentRoute) {
+            els.passengerEtaList.innerHTML = '';
+            return;
+        }
+
+        const targetStopIndex = parseInt(stopIndexStr, 10);
+        const targetStop = state.currentRoute.stops[targetStopIndex];
+
+        // 1. Obtener tiempo programado de la parada destino
+        const targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
+
+        // 2. Obtener posición actual y desviación del colectivo
+        const pos = getCurrentPosition();
+        if (!pos) {
+            els.passengerEtaList.innerHTML = '<p style="text-align:center;">Esperando señal GPS...</p>';
+            return;
+        }
+
+        const now = new Date();
+        const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+        let deviationSec = 0;
+        let isTerminalAndEarly = false;
+        let expectedCurrentLocationTimeSec = null;
+
+        // Intentar calcular desviación real usando la lógica principal
+        const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+
+        if (devResult) {
+            deviationSec = devResult.deviationSec; // (+) es adelantado, (-) es atrasado
+            expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
+
+            // Verificar si estamos en Punta de Línea (primer parada, < 50m)
+            const startStop = state.currentRoute.stops[0];
+            const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
+            if (dist <= 50 && deviationSec > 0) {
+                isTerminalAndEarly = true;
+            }
+        } else {
+             els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
+             return;
+        }
+
+        // Si ya pasó la parada destino (simplificación: si el tiempo actual esperado es mayor al destino)
+        if (expectedCurrentLocationTimeSec > targetTimeSec) {
+            els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
+            return;
+        }
+
+        // Cálculo de ETA en base a la solicitud del usuario
+        // Diferencia entre horario de parada B (target) y el horario en la parada A (expectedCurrentLocation)
+        let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
+
+        // Si el colectivo está adelantado en punta de línea, DEBE SUMARSE el adelanto para que el ETA refleje el tiempo de espera extra.
+        if (isTerminalAndEarly) {
+            etaSec += deviationSec;
+        }
+
+        // Formatear el ETA
+        const etaMinutes = Math.floor(etaSec / 60);
+        let etaDisplay = "";
+
+        if (etaMinutes < 2) {
+            etaDisplay = "Arribando";
+        } else {
+            etaDisplay = `${etaMinutes} min. aprox.`;
+        }
+
+        // Renderizar Tarjeta
+        const lineName = els.passengerSelectLine.options[els.passengerSelectLine.selectedIndex].text;
+        const bannerName = els.passengerSelectRoute.options[els.passengerSelectRoute.selectedIndex].text;
+        const stopName = targetStop.name;
+
+        els.passengerEtaList.innerHTML = `
+            <div class="eta-card">
+                <div class="eta-card-left">
+                    <div class="eta-line">${lineName}</div>
+                    <div class="eta-route">${bannerName}</div>
+                    <div class="eta-stop">${stopName}</div>
+                </div>
+                <div class="eta-card-right">
+                    ${etaDisplay}
+                </div>
+            </div>
+        `;
+    }
+
+    function togglePassengerMap() {
+        passengerMapVisible = !passengerMapVisible;
+        if (passengerMapVisible) {
+            els.passengerMapContainer.classList.remove('hidden');
+            MapLogic.initPassengerMap('passenger-map');
+            setTimeout(() => {
+                MapLogic.passengerMap.invalidateSize();
+                if (state.currentRoute) {
+                    MapLogic.loadRouteOnPassengerMap(state.currentRoute.stops);
+                    updatePassengerMapLocation();
+                }
+            }, 200);
+        } else {
+            els.passengerMapContainer.classList.add('hidden');
+        }
+    }
+
+    function updatePassengerMapLocation() {
+        const pos = getCurrentPosition();
+        if (pos && passengerMapVisible) {
+            MapLogic.updatePassengerUserPosition(pos.lat, pos.lng);
+        }
     }
 
     // --- Lógica del Modo PRO ---

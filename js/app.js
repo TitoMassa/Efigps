@@ -1463,12 +1463,29 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function openEditor() {
         els.modal.classList.remove('hidden');
+
+        // Determinar coordenadas iniciales
+        let initLat = -27.4692; // Corrientes fallback
+        let initLng = -58.8302;
+        if (state.lastGpsPosition) {
+            initLat = state.lastGpsPosition.lat;
+            initLng = state.lastGpsPosition.lng;
+        }
+
         // Init mapa después de visible
         setTimeout(() => {
-            MapLogic.initEditorMap('editor-map', (latlng) => {
+            const wasInitialized = !!MapLogic.editorMap;
+
+            MapLogic.initEditorMap('editor-map', initLat, initLng, (latlng) => {
                 handleMapClick(latlng);
             });
             MapLogic.editorMap.invalidateSize();
+
+            // Si el mapa ya existía y estamos creando una ruta nueva, centrar en el GPS
+            if (wasInitialized && !state.editingRouteId && tempStops.length === 0) {
+                MapLogic.editorMap.setView([initLat, initLng], 13);
+            }
+
         }, 100);
 
         // Reset estado editor

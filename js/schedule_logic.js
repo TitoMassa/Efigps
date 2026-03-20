@@ -8,113 +8,160 @@ const ScheduleLogic = {
      * Calcula el itinerario completo (lista de viajes) para una línea.
      *
      * @param {Object} config - Configuración del diagrama.
-     * @param {string} config.startTime - Hora inicio (HH:MM).
-     * @param {string} config.endTime - Hora fin (HH:MM).
-     * @param {number} config.turns - Cantidad de vueltas (puede ser decimal, ej. 4.5).
-     * @param {Array<Object>} [config.rests] - Lista de esperas por vuelta [{ida: 5, vuelta: 5}, ...].
-     * @param {number} [config.restIda] - Fallback: Minutos espera Ida global.
-     * @param {number} [config.restVuelta] - Fallback: Minutos espera Vuelta global.
-     * @param {Object} routeIda - Objeto de la ruta de Ida (debe tener stops).
-     * @param {Object} routeVuelta - Objeto de la ruta de Vuelta (debe tener stops).
+     * @param {string} config.startTime - Fecha y hora de inicio (YYYY-MM-DDTHH:MM).
+     * @param {string} config.endTime - Fecha y hora de fin (YYYY-MM-DDTHH:MM).
+     * @param {number} config.turns - Cantidad de tramos.
+     * @param {Array<Object>} config.rests - Lista de configuraciones por tramo [{routeId, rest, weight}, ...].
+     * @param {Array<Object>} savedRoutes - Lista de todas las rutas guardadas disponibles.
      * @returns {Array<Object>} Lista de viajes generados.
      */
-    calculateItinerary: function(config, routeIda, routeVuelta) {
-        const startSec = RouteLogic.timeToSeconds(config.startTime + ":00");
-        const endSec = RouteLogic.timeToSeconds(config.endTime + ":00");
+    calculateItinerary: function(config, savedRoutes) {
+        const startTimestamp = new Date(config.startTime).getTime();
+        const endTimestamp = new Date(config.endTime).getTime();
 
-        if (startSec === null || endSec === null || startSec >= endSec) {
-            console.error("Horarios inválidos");
+        if (isNaN(startTimestamp) || isNaN(endTimestamp) || startTimestamp >= endTimestamp) {
+            console.error("Horarios de inicio o fin inválidos");
             return [];
         }
 
-        const totalDurationSec = endSec - startSec;
-        const turns = parseFloat(config.turns);
-        const totalLegs = Math.floor(turns * 2);
-        if (totalLegs === 0) return [];
+        const totalDurationSec = (endTimestamp - startTimestamp) / 1000;
+        const totalLegs = config.turns;
 
-        // NUEVA LÓGICA: Duración de Vuelta Fija
-        const durationPerTurnSec = totalDurationSec / turns;
+        if (totalLegs <= 0 || !config.rests || config.rests.length !== totalLegs) {
+            console.error("Configuración de tramos inválida");
+            return [];
+        }
 
-        // Distribuimos el tiempo de manejo entre Ida y Vuelta según sus distancias
-        const distIda = this.calculateRouteDistance(routeIda.stops);
-        const distVuelta = this.calculateRouteDistance(routeVuelta.stops);
-        const totalDist = distIda + distVuelta;
+        // Determinar pesos numéricos para las duraciones
+        const weightMap = {
+            'corta': 0.8,
+            'media': 1.0,
+            'larga': 1.2
+        };
 
-        if (totalDist === 0) return [];
+        // Recopilar datos de cada tramo y calcular la suma de los "pesos de distancia" totales
+        let totalWaitTimeSec = 0;
+        let totalDistanceWeight = 0;
+        const legsData = [];
 
-        const trips = [];
-
-        // Iteramos por tramos (legs)
         for (let i = 0; i < totalLegs; i++) {
-            const isIda = (i % 2) === 0;
-            const turnIndex = Math.floor(i / 2); // 0, 1, 2...
+            const restConfig = config.rests[i];
+            const route = savedRoutes.find(r => r.id == restConfig.routeId);
 
-            // Determinar descansos para ESTA vuelta específica
-            let currentRestIdaSec = 0;
-            let currentRestVueltaSec = 0;
-
-            if (config.rests && config.rests[turnIndex]) {
-                currentRestIdaSec = (config.rests[turnIndex].ida || 0) * 60;
-                currentRestVueltaSec = (config.rests[turnIndex].vuelta || 0) * 60;
-            } else {
-                // Fallback a global
-                currentRestIdaSec = (parseInt(config.restIda) || 0) * 60;
-                currentRestVueltaSec = (parseInt(config.restVuelta) || 0) * 60;
-            }
-
-            // Calculamos tiempos para ESTA vuelta
-            const restPerTurnSec = currentRestIdaSec + currentRestVueltaSec;
-            const drivePerTurnSec = durationPerTurnSec - restPerTurnSec;
-
-            if (drivePerTurnSec <= 0) {
-                console.error(`El descanso de la vuelta ${turnIndex + 1} excede su duración.`);
+            if (!route) {
+                console.error(`No se encontró la ruta para el tramo ${i + 1}`);
                 return [];
             }
 
-            const durationIda = Math.round(drivePerTurnSec * (distIda / totalDist));
-            const durationVuelta = Math.round(drivePerTurnSec * (distVuelta / totalDist));
+            const dist = this.calculateRouteDistance(route.stops);
+            const weightValue = weightMap[restConfig.weight] || 1.0;
+            const distanceWeight = dist * weightValue;
+            const waitTimeSec = (restConfig.rest || 0) * 60;
 
-            // Calculamos el tiempo base de inicio de esta vuelta
-            const turnStartSec = startSec + (turnIndex * durationPerTurnSec);
+            totalDistanceWeight += distanceWeight;
+            totalWaitTimeSec += waitTimeSec;
 
-            // Determinar Inicio y Fin de este Tramo específico
-            let legStartSec, legEndSec;
+            legsData.push({
+                route: route,
+                dist: dist,
+                weightValue: weightValue,
+                distanceWeight: distanceWeight,
+                waitTimeSec: waitTimeSec,
+                weightName: restConfig.weight
+            });
+        }
 
-            if (isIda) {
-                legStartSec = turnStartSec;
-                legEndSec = legStartSec + durationIda;
-            } else {
-                // Vuelta empieza después de la Ida + Descanso Ida específico
-                legStartSec = turnStartSec + durationIda + currentRestIdaSec;
-                legEndSec = legStartSec + durationVuelta;
-            }
+        const totalDriveTimeSec = totalDurationSec - totalWaitTimeSec;
 
-            const tripName = isIda ? "Ida" : "Vuelta";
-            const routeTemplate = isIda ? routeIda : routeVuelta;
+        if (totalDriveTimeSec <= 0) {
+            console.error("Los tiempos de espera superan el tiempo total disponible.");
+            return [];
+        }
+
+        if (totalDistanceWeight === 0) {
+            console.error("Las rutas no tienen distancia válida.");
+            return [];
+        }
+
+        const trips = [];
+        let currentLegStartSec = startTimestamp / 1000;
+
+        // Iteramos por tramos (legs) para calcular sus tiempos absolutos
+        for (let i = 0; i < totalLegs; i++) {
+            const legData = legsData[i];
+
+            // Distribuir el tiempo de conducción proporcionalmente a la distancia ponderada
+            const legDriveDurationSec = Math.round(totalDriveTimeSec * (legData.distanceWeight / totalDistanceWeight));
+
+            const legStartSec = currentLegStartSec;
+            const legEndSec = legStartSec + legDriveDurationSec;
 
             // Generar paradas
-            const tripStops = JSON.parse(JSON.stringify(routeTemplate.stops));
-            tripStops[0].time = RouteLogic.secondsToTime(legStartSec);
-            tripStops[tripStops.length - 1].time = RouteLogic.secondsToTime(legEndSec);
+            const tripStops = JSON.parse(JSON.stringify(legData.route.stops));
+            tripStops[0].time = this.formatDateTimeSecondsToTime(legStartSec);
+            tripStops[tripStops.length - 1].time = this.formatDateTimeSecondsToTime(legEndSec);
 
             for (let k = 1; k < tripStops.length - 1; k++) {
                 tripStops[k].time = "";
             }
 
-            RouteLogic.calculateIntermediateTimes(tripStops);
+            this.calculateIntermediateTimesWithAbsoluteSeconds(tripStops, legStartSec, legEndSec, legData.route);
 
             trips.push({
                 id: Date.now() + i,
-                direction: tripName,
+                direction: legData.route.name, // Fallback visual de compatibilidad
                 legIndex: i + 1,
-                startTime: RouteLogic.secondsToTime(legStartSec),
-                endTime: RouteLogic.secondsToTime(legEndSec),
+                startTime: this.formatDateTimeSecondsToTime(legStartSec),
+                endTime: this.formatDateTimeSecondsToTime(legEndSec),
                 stops: tripStops,
-                routeOriginalName: routeTemplate.name
+                routeOriginalName: legData.route.name,
+                durationWeight: legData.weightName
             });
+
+            // Preparar inicio del siguiente tramo
+            currentLegStartSec = legEndSec + legData.waitTimeSec;
         }
 
         return trips;
+    },
+
+    /**
+     * Formatea segundos absolutos a un string HH:MM:SS para compatibilidad.
+     * Toma en cuenta los cruces de medianoche.
+     */
+    formatDateTimeSecondsToTime: function(absoluteSec) {
+        const date = new Date(absoluteSec * 1000);
+        return date.toLocaleTimeString('es-AR', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
+    },
+
+    /**
+     * Calcula tiempos intermedios basándose en timestamps absolutos para evitar problemas
+     * al cruzar la medianoche con RouteLogic estándar.
+     */
+    calculateIntermediateTimesWithAbsoluteSeconds: function(stops, startSec, endSec, originalRoute) {
+        if (stops.length < 2) return stops;
+
+        const totalTime = endSec - startSec;
+        const dists = [];
+        let totalDist = 0;
+
+        // Calcular distancias acumulativas de la ruta original usando polilíneas si las tiene
+        for (let i = 0; i < stops.length - 1; i++) {
+            const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
+            const d = RouteLogic.getPathTotalDistance(points);
+            dists.push(d);
+            totalDist += d;
+        }
+
+        let accumulatedDist = 0;
+        for (let i = 1; i < stops.length - 1; i++) {
+            accumulatedDist += dists[i - 1];
+            const ratio = totalDist > 0 ? (accumulatedDist / totalDist) : 0;
+            const expectedSec = startSec + (totalTime * ratio);
+            stops[i].time = this.formatDateTimeSecondsToTime(expectedSec);
+        }
+
+        return stops;
     },
 
     /**

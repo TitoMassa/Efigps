@@ -122,33 +122,25 @@
                     <label>Nombre de la Línea:</label>
                     <input type="text" id="line-name-input" placeholder="Ej: Línea 106">
                 </div>
-                <div class="form-group">
-                    <label>Bandera de IDA:</label>
-                    <select id="select-route-ida"></select>
-                </div>
-                <div class="form-group">
-                    <label>Bandera de VUELTA:</label>
-                    <select id="select-route-vuelta"></select>
-                </div>
 
                 <h3>Diagrama de Servicio</h3>
                 <div class="diagram-grid">
                     <div class="form-group">
-                        <label>Inicio Servicio:</label>
-                        <input type="time" id="line-start-time">
+                        <label>Inicio Servicio (Fecha y Hora):</label>
+                        <input type="datetime-local" id="line-start-time">
                     </div>
                     <div class="form-group">
-                        <label>Fin Servicio:</label>
-                        <input type="time" id="line-end-time">
+                        <label>Fin Servicio (Fecha y Hora):</label>
+                        <input type="datetime-local" id="line-end-time">
                     </div>
                     <div class="form-group">
-                        <label>Vueltas:</label>
-                        <input type="number" id="line-turns" step="0.5" min="0.5" placeholder="Ej: 4.5">
+                        <label>Medias Vueltas (Tramos):</label>
+                        <input type="number" id="line-turns" step="1" min="1" placeholder="Ej: 9 (equivale a 4.5 vueltas)">
                     </div>
-                    <!-- Contenedor dinámico de esperas -->
+                    <!-- Contenedor dinámico de configuración de tramos -->
                     <div class="form-group" style="grid-column: 1 / -1;">
-                        <label>Configuración de Esperas (minutos):</label>
-                        <div id="rests-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 200px; overflow-y: auto; padding: 5px; border: 1px solid #ccc;">
+                        <label>Configuración de Tramos:</label>
+                        <div id="rests-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding: 5px; border: 1px solid #ccc;">
                             <!-- Se generan dinámicamente -->
                         </div>
                     </div>

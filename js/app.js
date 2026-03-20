@@ -106,13 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Line Editor Inputs
         lineNameInput: document.getElementById('line-name-input'),
-        selectRouteIda: document.getElementById('select-route-ida'),
-        selectRouteVuelta: document.getElementById('select-route-vuelta'),
         lineStartTime: document.getElementById('line-start-time'),
         lineEndTime: document.getElementById('line-end-time'),
         lineTurns: document.getElementById('line-turns'),
-        // lineRestIda: document.getElementById('line-rest-ida'), // Removed
-        // lineRestVuelta: document.getElementById('line-rest-vuelta'), // Removed
         restsContainer: document.getElementById('rests-container'),
         btnSaveLine: document.getElementById('btn-save-line'),
         btnCancelLine: document.getElementById('btn-cancel-line'),
@@ -1120,6 +1116,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Abre el modal de Modo Profesional y carga las líneas */
     function openProMode() {
+        // Limpiar líneas viejas si es la primera vez que se abre con el nuevo formato
+        let lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const needsMigration = lines.some(l => l.routeIda !== undefined);
+        if (needsMigration) {
+            localStorage.setItem('gps_lines', JSON.stringify([]));
+        }
+
         els.proModal.classList.remove('hidden');
         els.proLineEditor.classList.add('hidden');
         els.proDriverView.classList.add('hidden');
@@ -1140,10 +1143,12 @@ document.addEventListener('DOMContentLoaded', () => {
         lines.forEach(line => {
             const li = document.createElement('li');
             li.className = 'item-card';
+            const startDate = new Date(line.start).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            const endDate = new Date(line.end).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
             li.innerHTML = `
                 <div>
                     <h4>${line.name}</h4>
-                    <p>${line.start} - ${line.end} | ${line.turns} Vueltas</p>
+                    <p>${startDate} a ${endDate} | ${line.turns} Tramos</p>
                 </div>
                 <div>
                     <button class="btn-small" onclick="window.driveLine(${line.id})">Conducir</button>
@@ -1160,11 +1165,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!line) return;
 
         const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
-        const rIda = savedRoutes.find(r => r.id == line.routeIda);
-        const rVuelta = savedRoutes.find(r => r.id == line.routeVuelta);
 
-        if (!rIda || !rVuelta) {
-            alert("Error: Faltan las rutas de Ida o Vuelta asociadas.");
+        // Verificar que todas las rutas referenciadas en rests sigan existiendo
+        const missingRoutes = line.rests.some(rest => !savedRoutes.find(r => r.id == rest.routeId));
+        if (missingRoutes) {
+            alert("Error: Faltan algunas de las banderas asociadas a los tramos de esta línea. Por favor edite la línea.");
             return;
         }
 
@@ -1173,14 +1178,11 @@ document.addEventListener('DOMContentLoaded', () => {
             startTime: line.start,
             endTime: line.end,
             turns: line.turns,
-            rests: line.rests || [], // Nuevo campo con Array
-            // Fallback para backward compatibility
-            restIda: line.restIda !== undefined ? line.restIda : (line.rest || 0),
-            restVuelta: line.restVuelta !== undefined ? line.restVuelta : (line.rest || 0)
-        }, rIda, rVuelta);
+            rests: line.rests || [] // Configuraciones completas por tramo
+        }, savedRoutes);
 
         if (!trips || trips.length === 0) {
-            alert("No se pudo generar el cronograma. Verifique los horarios.");
+            alert("No se pudo generar el cronograma. Verifique los horarios y distancias.");
             return;
         }
 
@@ -1194,9 +1196,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement('div');
             div.className = 'trip-card';
             div.innerHTML = `
-                <div class="trip-dir">${trip.direction}</div>
+                <div class="trip-dir">${trip.routeOriginalName}</div>
                 <div class="trip-time">${trip.startTime} - ${trip.endTime}</div>
-                <div class="trip-leg">Tramo ${trip.legIndex}</div>
+                <div class="trip-leg">Tramo ${trip.legIndex} (${trip.durationWeight})</div>
             `;
             div.onclick = () => {
                 startItinerary(trips, trips.indexOf(trip), line.name);
@@ -1274,78 +1276,51 @@ document.addEventListener('DOMContentLoaded', () => {
         els.proLinesView.classList.add('hidden');
         els.proLineEditor.classList.remove('hidden');
 
-        // Cargar opciones de rutas
-        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
-        const populate = (sel, selectedId) => {
-            sel.innerHTML = '<option value="">Seleccionar...</option>';
-            savedRoutes.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r.id;
-                opt.textContent = r.name;
-                if (selectedId && r.id == selectedId) opt.selected = true;
-                sel.appendChild(opt);
-            });
-        };
-
         if (line) {
             editingLineId = line.id;
             els.lineNameInput.value = line.name;
-            populate(els.selectRouteIda, line.routeIda);
-            populate(els.selectRouteVuelta, line.routeVuelta);
             els.lineStartTime.value = line.start;
             els.lineEndTime.value = line.end;
             els.lineTurns.value = line.turns;
 
             // Generar Inputs de Espera y llenar valores
             generateRestInputs(null, line.rests || []);
-            // Fallback si no hay rests pero sí restIda/Vuelta globales
-            if ((!line.rests || line.rests.length === 0) && (line.restIda !== undefined || line.restVuelta !== undefined)) {
-                 // Rellenar manualmente los inputs generados con los valores globales
-                 const globalIda = line.restIda || 0;
-                 const globalVuelta = line.restVuelta || 0;
-                 document.querySelectorAll('.input-rest-ida').forEach(inp => inp.value = globalIda);
-                 document.querySelectorAll('.input-rest-vuelta').forEach(inp => inp.value = globalVuelta);
-            }
 
             els.btnDeleteLine.classList.remove('hidden');
         } else {
             editingLineId = null;
             els.lineNameInput.value = '';
-            populate(els.selectRouteIda, null);
-            populate(els.selectRouteVuelta, null);
             els.lineStartTime.value = '';
             els.lineEndTime.value = '';
             els.lineTurns.value = '';
-            els.restsContainer.innerHTML = '<p style="font-size:12px; color:#666">Ingrese vueltas para configurar esperas.</p>';
+            els.restsContainer.innerHTML = '<p style="font-size:12px; color:#666">Ingrese cantidad de tramos (medias vueltas) para configurarlos.</p>';
             els.btnDeleteLine.classList.add('hidden');
         }
     }
 
     /**
-     * Genera dinámicamente los inputs para configuración de espera por vuelta.
+     * Genera dinámicamente los inputs para configuración de cada tramo (media vuelta).
      * @param {Event|null} e
      * @param {Array|null} existingRests
      */
     function generateRestInputs(e, existingRests = []) {
-        const turnsVal = parseFloat(els.lineTurns.value);
-        if (isNaN(turnsVal) || turnsVal <= 0) {
+        const totalLegs = parseInt(els.lineTurns.value);
+        if (isNaN(totalLegs) || totalLegs <= 0) {
             els.restsContainer.innerHTML = '';
             return;
         }
 
-        const totalLegs = Math.floor(turnsVal * 2);
-        // Evitar regenerar si no cambió (opcional, pero simplifica la lógica de mantener valores)
-        // Por ahora regeneramos y tratamos de preservar valores si es un evento de UI
-
-        // Si viene de UI (keyup/change), queremos preservar lo que el usuario ya escribió si aumenta vueltas
+        // Si viene de UI (keyup/change), queremos preservar lo que el usuario ya escribió si aumenta tramos
         let currentValues = [];
         if (e) {
             document.querySelectorAll('.rest-group-item').forEach(div => {
-                const idaInp = div.querySelector('.input-rest-ida');
-                const vueltaInp = div.querySelector('.input-rest-vuelta');
+                const routeSelect = div.querySelector('.select-route');
+                const restInp = div.querySelector('.input-rest');
+                const weightSelect = div.querySelector('.select-weight');
                 currentValues.push({
-                    ida: idaInp ? idaInp.value : 0,
-                    vuelta: vueltaInp ? vueltaInp.value : 0
+                    routeId: routeSelect ? routeSelect.value : "",
+                    rest: restInp ? restInp.value : 0,
+                    weight: weightSelect ? weightSelect.value : "media"
                 });
             });
         } else {
@@ -1353,44 +1328,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         els.restsContainer.innerHTML = '';
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
 
-        const fullTurns = Math.ceil(turnsVal); // Iterar por vueltas (1, 2, 3...)
-
-        for(let i=0; i<fullTurns; i++) {
-            const turnNum = i + 1;
-            const vals = currentValues[i] || {ida: 0, vuelta: 0};
-
-            // Check if this turn is partial (0.5) => only Ida
-            // Ejemplo: 2.5 vueltas.
-            // i=0 (Turn 1): Ida + Vuelta
-            // i=1 (Turn 2): Ida + Vuelta
-            // i=2 (Turn 3): Ida Only (Total legs = 5)
-
-            // Logic: Is this the last turn AND is it partial?
-            const isLast = (i === fullTurns - 1);
-            const isPartial = (turnsVal % 1 !== 0);
-            const showVuelta = !(isLast && isPartial);
+        for(let i=0; i<totalLegs; i++) {
+            const vals = currentValues[i] || {routeId: "", rest: 0, weight: "media"};
 
             const div = document.createElement('div');
             div.className = 'rest-group-item';
-            div.style.gridColumn = "1 / -1";
             div.style.display = "flex";
-            div.style.gap = "10px";
+            div.style.gap = "5px";
             div.style.borderBottom = "1px solid #eee";
             div.style.paddingBottom = "5px";
-            div.style.marginBottom = "5px";
             div.style.alignItems = "center";
+            div.style.flexWrap = "wrap";
+
+            // Selector de Bandera
+            const selectRouteHtml = `<select class="select-route" style="flex: 2; font-size: 12px;">
+                <option value="">Bandera...</option>
+                ${savedRoutes.map(r => `<option value="${r.id}" ${vals.routeId == r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
+            </select>`;
+
+            // Input Espera
+            const inputRestHtml = `<input type="number" class="input-rest" placeholder="Espera (min)" value="${vals.rest}" style="flex: 1; font-size: 12px;" min="0">`;
+
+            // Selector Peso (Corta/Media/Larga)
+            const selectWeightHtml = `<select class="select-weight" style="flex: 1; font-size: 12px;">
+                <option value="corta" ${vals.weight === 'corta' ? 'selected' : ''}>Corta</option>
+                <option value="media" ${vals.weight === 'media' ? 'selected' : ''}>Media</option>
+                <option value="larga" ${vals.weight === 'larga' ? 'selected' : ''}>Larga</option>
+            </select>`;
 
             div.innerHTML = `
-                <span style="font-size:12px; font-weight:bold; width: 60px;">Vta ${turnNum}:</span>
-                <div style="flex:1">
-                    <input type="number" class="input-rest-ida" placeholder="Esp. Ida" value="${vals.ida}" style="width: 100%; font-size: 12px;">
-                </div>
-                ${showVuelta ? `
-                <div style="flex:1">
-                    <input type="number" class="input-rest-vuelta" placeholder="Esp. Vuelta" value="${vals.vuelta}" style="width: 100%; font-size: 12px;">
-                </div>
-                ` : '<div style="flex:1"></div>'}
+                <span style="font-size:12px; font-weight:bold; width: 65px;">Tramo ${i + 1}:</span>
+                ${selectRouteHtml}
+                ${inputRestHtml}
+                ${selectWeightHtml}
             `;
             els.restsContainer.appendChild(div);
         }
@@ -1398,36 +1370,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveLine() {
         const name = els.lineNameInput.value;
-        const ida = els.selectRouteIda.value;
-        const vuelta = els.selectRouteVuelta.value;
         const start = els.lineStartTime.value;
         const end = els.lineEndTime.value;
         const turns = els.lineTurns.value;
 
-        if (!name || !ida || !vuelta || !start || !end || !turns) {
-            alert("Complete todos los campos obligatorios");
+        if (!name || !start || !end || !turns) {
+            alert("Complete nombre, fechas de inicio y fin, y cantidad de tramos");
             return;
         }
 
-        // Recolectar Rests
+        // Recolectar Rests y Rutas
         const rests = [];
+        let missingRoute = false;
         document.querySelectorAll('.rest-group-item').forEach(div => {
-            const idaVal = div.querySelector('.input-rest-ida').value;
-            const vueltaVal = div.querySelector('.input-rest-vuelta'); // Puede ser null
+            const routeId = div.querySelector('.select-route').value;
+            const restVal = div.querySelector('.input-rest').value;
+            const weightVal = div.querySelector('.select-weight').value;
+
+            if (!routeId) {
+                missingRoute = true;
+            }
+
             rests.push({
-                ida: parseInt(idaVal) || 0,
-                vuelta: vueltaVal ? (parseInt(vueltaVal.value) || 0) : 0
+                routeId: routeId,
+                rest: parseInt(restVal) || 0,
+                weight: weightVal
             });
         });
+
+        if (missingRoute) {
+             alert("Debe seleccionar una bandera para todos los tramos configurados.");
+             return;
+        }
 
         const line = {
             id: editingLineId || Date.now(),
             name,
-            routeIda: ida,
-            routeVuelta: vuelta,
             start,
             end,
-            turns: parseFloat(turns),
+            turns: parseInt(turns),
             rests: rests
         };
 

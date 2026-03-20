@@ -35,12 +35,14 @@ const MapLogic = {
      * Configura la vista inicial y el manejo de eventos de clic.
      *
      * @param {string} elementId - El ID del elemento HTML contenedor del mapa.
+     * @param {number} initialLat - Latitud inicial.
+     * @param {number} initialLng - Longitud inicial.
      * @param {Function} onClickCallback - Función a llamar cuando se hace clic en el mapa. Recibe un objeto latlng.
      */
-    initEditorMap: function(elementId, onClickCallback) {
+    initEditorMap: function(elementId, initialLat, initialLng, onClickCallback) {
         if (this.editorMap) return; // Ya inicializado
 
-        this.editorMap = L.map(elementId).setView([-34.6037, -58.3816], 13); // Default Buenos Aires
+        this.editorMap = L.map(elementId).setView([initialLat, initialLng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(this.editorMap);

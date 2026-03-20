@@ -900,14 +900,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!state.currentRoute || els.passengerSelectLine.value === "") return;
 
-        let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
+        // Si estamos en Modo PRO (Itinerario Activo), mostrar el tramo actual y los futuros del mismo servicio
+        if (state.activeItinerary && state.activeTripIndex >= 0) {
+            const addedBanners = new Set();
 
-        const opt = document.createElement('option');
-        opt.value = currentBannerName;
-        opt.textContent = currentBannerName;
-        els.passengerSelectRoute.appendChild(opt);
+            // Iterar desde el viaje actual hasta el final del itinerario
+            for (let i = state.activeTripIndex; i < state.activeItinerary.length; i++) {
+                const trip = state.activeItinerary[i];
+                const bannerName = trip.routeOriginalName || trip.direction; // O usar trip.direction ('Ida', 'Vuelta') si prefiere
 
-        // Autoseleccionar
+                // Evitar duplicados (ej: no mostrar dos veces "VUELTA" si hay varias vueltas, o sí, dependiendo de la necesidad)
+                // Usaremos un identificador único que incluya el nombre de la bandera y el tramo para distinguirlos
+                const uniqueName = `${bannerName} (Tramo ${i + 1})`;
+
+                const opt = document.createElement('option');
+                opt.value = i; // Guardamos el índice del viaje en el itinerario
+                opt.textContent = uniqueName;
+
+                // Marcar el actual
+                if (i === state.activeTripIndex) {
+                    opt.textContent = `${bannerName} (Actual)`;
+                }
+
+                els.passengerSelectRoute.appendChild(opt);
+            }
+        } else {
+            // Modo Manual Simple: Solo existe la ruta actual
+            let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
+            const opt = document.createElement('option');
+            opt.value = "current"; // Identificador especial para modo simple
+            opt.textContent = currentBannerName;
+            els.passengerSelectRoute.appendChild(opt);
+        }
+
+        // Autoseleccionar la primera opción (la actual)
         if (els.passengerSelectRoute.options.length > 1) {
             els.passengerSelectRoute.selectedIndex = 1;
             updatePassengerStops();
@@ -920,7 +946,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!state.currentRoute || els.passengerSelectRoute.value === "") return;
 
-        state.currentRoute.stops.forEach((stop, index) => {
+        const val = els.passengerSelectRoute.value;
+        let stopsToUse = state.currentRoute.stops;
+
+        if (val !== "current" && state.activeItinerary) {
+            const tripIndex = parseInt(val, 10);
+            if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
+                stopsToUse = state.activeItinerary[tripIndex].stops;
+            }
+        }
+
+        stopsToUse.forEach((stop, index) => {
             const opt = document.createElement('option');
             opt.value = index;
             opt.textContent = stop.name;
@@ -930,24 +966,41 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize Map if it's supposed to be visible but we just loaded stops
         if (passengerMapVisible) {
              MapLogic.initPassengerMap('passenger-map');
-             MapLogic.loadRouteOnPassengerMap(state.currentRoute.stops);
+             MapLogic.loadRouteOnPassengerMap(stopsToUse);
+             updatePassengerMapLocation();
         }
     }
 
     function updatePassengerETAs() {
         const stopIndexStr = els.passengerSelectStop.value;
+        const routeVal = els.passengerSelectRoute.value;
+
         if (stopIndexStr === "" || !state.currentRoute) {
             els.passengerEtaList.innerHTML = '';
             return;
         }
 
+        // Determinar qué lista de paradas estamos usando (viaje actual o viaje futuro)
+        let stopsToUse = state.currentRoute.stops;
+        let isFutureTrip = false;
+
+        if (routeVal !== "current" && state.activeItinerary) {
+            const selectedTripIndex = parseInt(routeVal, 10);
+            if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
+                isFutureTrip = true;
+            }
+            if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
+                stopsToUse = state.activeItinerary[selectedTripIndex].stops;
+            }
+        }
+
         const targetStopIndex = parseInt(stopIndexStr, 10);
-        const targetStop = state.currentRoute.stops[targetStopIndex];
+        const targetStop = stopsToUse[targetStopIndex];
 
         // 1. Obtener tiempo programado de la parada destino
         const targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
-        // 2. Obtener posición actual y desviación del colectivo
+        // 2. Obtener posición actual y desviación del colectivo (siempre relativo al viaje actual)
         const pos = getCurrentPosition();
         if (!pos) {
             els.passengerEtaList.innerHTML = '<p style="text-align:center;">Esperando señal GPS...</p>';
@@ -961,14 +1014,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let isTerminalAndEarly = false;
         let expectedCurrentLocationTimeSec = null;
 
-        // Intentar calcular desviación real usando la lógica principal
+        // Intentar calcular desviación real usando la lógica principal (en el tramo actual)
         const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
 
         if (devResult) {
             deviationSec = devResult.deviationSec; // (+) es adelantado, (-) es atrasado
             expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
 
-            // Verificar si estamos en Punta de Línea (primer parada, < 50m)
+            // Verificar si estamos en Punta de Línea del VIAJE ACTUAL (primer parada, < 50m)
             const startStop = state.currentRoute.stops[0];
             const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
             if (dist <= 50 && deviationSec > 0) {
@@ -979,17 +1032,23 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
-        // Si ya pasó la parada destino (simplificación: si el tiempo actual esperado es mayor al destino)
-        if (expectedCurrentLocationTimeSec > targetTimeSec) {
+        // Si ya pasó la parada destino en el viaje actual (y no es un viaje futuro)
+        if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
             els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
             return;
         }
 
-        // Cálculo de ETA en base a la solicitud del usuario
-        // Diferencia entre horario de parada B (target) y el horario en la parada A (expectedCurrentLocation)
+        // Cálculo de ETA
+        // Diferencia entre horario programado del destino (puede ser de un viaje futuro)
+        // y el horario programado de la ubicación actual.
         let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
 
-        // Si el colectivo está adelantado en punta de línea, DEBE SUMARSE el adelanto para que el ETA refleje el tiempo de espera extra.
+        // Si el viaje es futuro y cruza la medianoche (etaSec es negativo a pesar de ser futuro)
+        if (etaSec < 0 && isFutureTrip) {
+            etaSec += 86400; // Sumar 24 horas en segundos
+        }
+
+        // Si el colectivo está adelantado en punta de línea actual, DEBE SUMARSE el adelanto para que el ETA refleje el tiempo de espera extra.
         if (isTerminalAndEarly) {
             etaSec += deviationSec;
         }
@@ -1031,7 +1090,15 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 MapLogic.passengerMap.invalidateSize();
                 if (state.currentRoute) {
-                    MapLogic.loadRouteOnPassengerMap(state.currentRoute.stops);
+                    let stopsToUse = state.currentRoute.stops;
+                    const val = els.passengerSelectRoute.value;
+                    if (val !== "current" && state.activeItinerary) {
+                        const tripIndex = parseInt(val, 10);
+                        if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
+                            stopsToUse = state.activeItinerary[tripIndex].stops;
+                        }
+                    }
+                    MapLogic.loadRouteOnPassengerMap(stopsToUse);
                     updatePassengerMapLocation();
                 }
             }, 200);
@@ -1396,12 +1463,29 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function openEditor() {
         els.modal.classList.remove('hidden');
+
+        // Determinar coordenadas iniciales
+        let initLat = -27.4692; // Corrientes fallback
+        let initLng = -58.8302;
+        if (state.lastGpsPosition) {
+            initLat = state.lastGpsPosition.lat;
+            initLng = state.lastGpsPosition.lng;
+        }
+
         // Init mapa después de visible
         setTimeout(() => {
-            MapLogic.initEditorMap('editor-map', (latlng) => {
+            const wasInitialized = !!MapLogic.editorMap;
+
+            MapLogic.initEditorMap('editor-map', initLat, initLng, (latlng) => {
                 handleMapClick(latlng);
             });
             MapLogic.editorMap.invalidateSize();
+
+            // Si el mapa ya existía y estamos creando una ruta nueva, centrar en el GPS
+            if (wasInitialized && !state.editingRouteId && tempStops.length === 0) {
+                MapLogic.editorMap.setView([initLat, initLng], 13);
+            }
+
         }, 100);
 
         // Reset estado editor

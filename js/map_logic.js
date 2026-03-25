@@ -227,7 +227,7 @@ const MapLogic = {
                  radius: 6
              }).addTo(this.passengerMap);
 
-             marker.bindPopup(`<strong>${stop.name}</strong>`);
+             marker.bindPopup(`<strong>${stop.name}</strong><br>Hora: ${stop.time || '--'}`);
              this.passengerMarkers.push(marker);
         });
 

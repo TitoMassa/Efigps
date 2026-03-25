@@ -571,7 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const legajo = prefix + suffix;
 
                         // Inicializar el offset de tiempo. Positivo = Chofer adelantado físicamente, Negativo = Atrasado.
-                        const initialTimeOffset = Math.floor(Math.random() * 601) - 300;
+                        // Inicializar el offset de tiempo. Solo negativo (atrasado) o 0 para que no salga adelantado de la punta de línea.
+                        const initialTimeOffset = -(Math.floor(Math.random() * 300));
 
                         pDriver = {
                             name: `${ln} ${fn1} ${fn2} (${legajo})`,
@@ -604,33 +605,76 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Random walk on timeOffset to humanize
-                if (Math.random() < 0.05) {
-                    driver.timeOffset += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
-                    driver.timeOffset = Math.max(-900, Math.min(900, driver.timeOffset));
-
-                    // Persist
-                    persistentDrivers[line.id].timeOffset = driver.timeOffset;
-                    localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
-                }
-
                 // La posición física del chofer está dictada por su timeOffset
-                const simTimeSec = currentTimeSec + driver.timeOffset;
+                let simTimeSec = currentTimeSec + driver.timeOffset;
 
                 let currentTrip = null;
                 let tripIndex = -1;
 
+                // Primero determinamos el viaje actual basándonos en el tiempo real (sin offset)
+                // para saber en qué viaje debería estar. Si usamos simTimeSec podríamos adelantarlo al viaje siguiente.
                 for (let i = 0; i < trips.length; i++) {
                     const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
                     const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
-                    if (simTimeSec >= startSec && simTimeSec <= endSec) {
+                    if (currentTimeSec >= startSec && currentTimeSec <= endSec) {
                         currentTrip = trips[i];
                         tripIndex = i;
                         break;
                     }
                 }
 
+                // Si está en un viaje, comprobamos si está en la punta de línea y adelantado
                 if (currentTrip) {
+                    const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
+
+                    // Si el chofer está adelantado (simTimeSec > currentTimeSec) pero todavía está en tiempo
+                    // de estar cerca de la terminal, forzamos a que no salga adelantado.
+                    // Si currentTimeSec apenas pasó el startSec (ej. pasaron < 3 minutos), y tiene timeOffset positivo, lo clampamos.
+                    if (driver.timeOffset > 0 && currentTimeSec <= startSec + 180) {
+                        // En punta de línea nunca sale adelantado
+                        driver.timeOffset = 0;
+                        simTimeSec = currentTimeSec;
+                        persistentDrivers[line.id].timeOffset = 0;
+                        localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                    }
+                }
+
+                // Random walk on timeOffset to humanize
+                if (Math.random() < 0.05) {
+                    driver.timeOffset += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
+                    driver.timeOffset = Math.max(-900, Math.min(900, driver.timeOffset));
+
+                    // Si el nuevo random walk lo pone adelantado en punta de línea, lo corregimos
+                    if (currentTrip) {
+                         const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
+                         if (driver.timeOffset > 0 && currentTimeSec <= startSec + 180) {
+                             driver.timeOffset = 0;
+                         }
+                    }
+
+                    // Persist
+                    persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                    localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+
+                    simTimeSec = currentTimeSec + driver.timeOffset;
+                }
+
+                // Ahora determinamos el viaje exacto según su tiempo simulado para su física
+                let physicsTrip = null;
+                let physicsTripIndex = -1;
+                for (let i = 0; i < trips.length; i++) {
+                    const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
+                    const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
+                    if (simTimeSec >= startSec && simTimeSec <= endSec) {
+                        physicsTrip = trips[i];
+                        physicsTripIndex = i;
+                        break;
+                    }
+                }
+
+                if (physicsTrip) {
+                    currentTrip = physicsTrip;
+                    tripIndex = physicsTripIndex;
                     driver.currentTripIndex = tripIndex;
                     driver.bannerName = currentTrip.routeOriginalName || currentTrip.direction;
 
@@ -1376,15 +1420,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
+        // Base ETA logic is purely the schedule time difference
+        // targetTimeSec = scheduled time of the selected stop
+        // currentSec = current real time
+        let etaSec = targetTimeSec - currentSec;
 
         if (etaSec < 0 && isFutureTrip) {
-            etaSec += 86400;
+            etaSec += 86400; // Next day
         }
 
-        if (deviationSec > 0) {
-            if (isFutureTrip || !isOutsideTerminal) {
-                etaSec += deviationSec;
+        // Apply deviation logic (deviationSec: negative = late, positive = early)
+        if (deviationSec < 0) {
+            // Late: add delay to ETA
+            etaSec += Math.abs(deviationSec);
+        } else if (deviationSec > 0) {
+            // Early: subtract time to show it's arriving earlier
+            // Except if the bus is waiting at the terminal or if it's a future trip
+            if (!isFutureTrip && isOutsideTerminal) {
+                etaSec -= deviationSec;
             }
         }
 

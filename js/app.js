@@ -1420,6 +1420,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let targetTimeSec = 0;
         let targetStop = null;
 
+        // Variables para proyectar atrasos en viajes futuros
+        let currentTripIdx = -1;
+        let targetTripIdx = -1;
+        let allTrips = [];
+
         let currentLat = null;
         let currentLng = null;
         let deviationSec = 0;
@@ -1434,15 +1439,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             stopsToUse = state.currentRoute.stops;
 
+            if (state.activeItinerary) {
+                allTrips = state.activeItinerary;
+                currentTripIdx = state.activeTripIndex;
+            }
+
             if (routeVal !== "human_current" && state.activeItinerary) {
                 const val = routeVal.replace("human_", "");
                 const selectedTripIndex = parseInt(val, 10);
+                targetTripIdx = selectedTripIndex;
                 if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
                     isFutureTrip = true;
                 }
                 if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
                     stopsToUse = state.activeItinerary[selectedTripIndex].stops;
                 }
+            } else {
+                targetTripIdx = currentTripIdx;
             }
 
             const targetStopIndex = parseInt(stopIndexStr, 10);
@@ -1478,8 +1491,13 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
 
+            allTrips = driver.trips || [];
+            currentTripIdx = driver.currentTripIndex;
+
             const parts = routeVal.replace("sim_", "").split("_");
             const tripIndex = parseInt(parts[1]);
+            targetTripIdx = tripIndex;
+
             if (tripIndex > driver.currentTripIndex) {
                  isFutureTrip = true;
             }
@@ -1540,8 +1558,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply deviation logic (deviationSec: negative = late, positive = early)
         if (deviationSec < 0) {
-            // Late: add delay to ETA
-            etaSec += Math.abs(deviationSec);
+            // Late: add delay to ETA.
+            // Si es un viaje futuro, evaluamos si los tiempos de espera entre tramos amortiguan el atraso.
+            let projectedDelay = Math.abs(deviationSec);
+
+            if (isFutureTrip && currentTripIdx !== -1 && targetTripIdx !== -1 && allTrips.length > 0) {
+                // Iteramos sobre los tiempos de espera entre los tramos intermedios
+                for (let i = currentTripIdx; i < targetTripIdx; i++) {
+                    const tripEnd = RouteLogic.timeToSeconds(allTrips[i].stops[allTrips[i].stops.length - 1].time);
+                    const nextTripStart = RouteLogic.timeToSeconds(allTrips[i+1].stops[0].time);
+
+                    let waitBuffer = nextTripStart - tripEnd;
+                    if (waitBuffer < 0) waitBuffer += 86400; // Cruce de medianoche
+
+                    // El tiempo de espera absorbe el atraso
+                    projectedDelay -= waitBuffer;
+                    if (projectedDelay <= 0) {
+                        projectedDelay = 0;
+                        break;
+                    }
+                }
+            }
+
+            etaSec += projectedDelay;
+
         } else if (deviationSec > 0) {
             // Early: subtract time to show it's arriving earlier
             // Except if the bus is waiting at the terminal or if it's a future trip

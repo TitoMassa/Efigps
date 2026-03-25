@@ -1490,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
             if (driver.lat === null || driver.lng === null) {
-                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Chofer en espera...</p>';
+                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Servicio no iniciado.</p>';
                 return;
             }
 
@@ -1503,17 +1503,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (devResult) {
                 deviationSec = devResult.deviationSec;
                 expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
-
-                const startStop = currentTripStops[0];
-                const dist = RouteLogic.getDistance(currentLat, currentLng, startStop.lat, startStop.lng) * 1000;
-                isOutsideTerminal = dist > 50;
             } else {
-                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
-                return;
+                // El cálculo de desviación puede fallar si está exactamente en la primera/última parada
+                // o fuera del radio mínimo de la ruta (Ej. esperando en la terminal clavado en el punto exacto).
+                // En este caso, confiamos en la desviación que ya calculó el simulador central.
+                deviationSec = driver.deviation;
+                // Asumimos que su tiempo esperado de ubicación es la hora de la primera parada menos su desviación.
+                expectedCurrentLocationTimeSec = RouteLogic.timeToSeconds(currentTripStops[0].time) - driver.deviation;
             }
+
+            const startStop = currentTripStops[0];
+            const dist = RouteLogic.getDistance(currentLat, currentLng, startStop.lat, startStop.lng) * 1000;
+            isOutsideTerminal = dist > 50;
         }
 
-        if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
+        if (!isFutureTrip && expectedCurrentLocationTimeSec !== null && expectedCurrentLocationTimeSec > targetTimeSec) {
             const lineName = els.passengerSelectLine.options[els.passengerSelectLine.selectedIndex].text;
             els.passengerEtaList.innerHTML = `
             <div class="eta-card" style="background-color: #666;">

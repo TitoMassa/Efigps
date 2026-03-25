@@ -572,7 +572,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Inicializar el offset de tiempo. Positivo = Chofer adelantado físicamente, Negativo = Atrasado.
                         // Inicializar el offset de tiempo. Solo negativo (atrasado) o 0 para que no salga adelantado de la punta de línea.
-                        const initialTimeOffset = -(Math.floor(Math.random() * 300));
+                        // Entre 2 y 10 minutos tarde (120s a 600s), promediando 4 mins
+                        let randomDelay = Math.random();
+                        let delaySecs = 0;
+                        if (randomDelay < 0.6) {
+                            delaySecs = 240 + Math.floor(Math.random() * 120) - 60; // 3 a 5 mins
+                        } else {
+                            delaySecs = 120 + Math.floor(Math.random() * 480); // 2 a 10 mins
+                        }
+
+                        const initialTimeOffset = -delaySecs;
 
                         pDriver = {
                             name: `${ln} ${fn1} ${fn2} (${legajo})`,
@@ -705,9 +714,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 driver.timeOffset = startSec - currentTimeSec;
                                 // Ojo: a medida que currentTimeSec aumenta, timeOffset bajará hasta 0.
                                 // Nunca sale adelantado, a lo sumo sale con timeOffset = 0 (exactamente a tiempo)
-                                // o le podemos agregar un pequeño retraso natural humano en el arranque (0 a 10s tarde).
+                                // Pero para más realismo, al salir de punta de línea tras descansar,
+                                // sale atrasado entre 2 y 10 minutos (120 a 600 segundos), promediando 4 mins.
                                 if (driver.timeOffset <= 0) {
-                                     driver.timeOffset = -(Math.floor(Math.random() * 10));
+                                     let startDelay = Math.random();
+                                     let startDelaySecs = 0;
+                                     if (startDelay < 0.6) {
+                                         startDelaySecs = 240 + Math.floor(Math.random() * 120) - 60; // 3 a 5 mins
+                                     } else {
+                                         startDelaySecs = 120 + Math.floor(Math.random() * 480); // 2 a 10 mins
+                                     }
+                                     driver.timeOffset = -startDelaySecs;
                                 }
 
                                 simTimeSec = currentTimeSec + driver.timeOffset;

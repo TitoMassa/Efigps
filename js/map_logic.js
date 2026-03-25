@@ -30,6 +30,12 @@ const MapLogic = {
     /** @type {Array<L.CircleMarker>} Lista de marcadores de paradas en el mapa de pasajeros */
     passengerMarkers: [],
 
+    /** @type {Array<L.Marker>} Lista de marcadores para choferes simulados en el mapa de navegación */
+    simulatedDriverMarkersNav: [],
+
+    /** @type {Array<L.Marker>} Lista de marcadores para choferes simulados en el mapa de pasajeros */
+    simulatedDriverMarkersPassenger: [],
+
     /**
      * Inicializa el mapa del editor en el elemento DOM especificado.
      * Configura la vista inicial y el manejo de eventos de clic.
@@ -339,5 +345,77 @@ const MapLogic = {
             this.navUserMarker.setLatLng([lat, lng]);
         }
         this.navMap.setView([lat, lng]); // Seguir usuario
+    },
+
+    /**
+     * Renderiza los choferes simulados en los mapas activos (Navegación y Pasajeros).
+     * @param {Array<Object>} drivers - Lista de choferes simulados activos.
+     */
+    renderSimulatedDrivers: function(drivers) {
+        // --- Navegación Map ---
+        if (this.navMap) {
+            // Eliminar marcadores anteriores
+            this.simulatedDriverMarkersNav.forEach(m => this.navMap.removeLayer(m));
+            this.simulatedDriverMarkersNav = [];
+
+            // Añadir nuevos marcadores
+            drivers.forEach(d => {
+                if (d.lat !== null && d.lng !== null) {
+                    const marker = L.marker([d.lat, d.lng], {
+                        icon: L.divIcon({
+                            className: 'simulated-driver-icon',
+                            html: '<i class="fa-solid fa-bus" style="color: #ff9800; font-size: 16px; text-shadow: 1px 1px 2px #000;"></i>',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        })
+                    }).addTo(this.navMap);
+
+                    const sign = d.deviation <= 0 ? '+' : '-';
+                    const absDev = Math.abs(d.deviation);
+                    const m = Math.floor(absDev / 60).toString().padStart(2, '0');
+                    const s = (absDev % 60).toString().padStart(2, '0');
+                    const devStr = `${sign}${m}:${s}`;
+
+                    marker.bindTooltip(`<b>${d.lineName}</b><br>${d.bannerName}<br>${devStr}`, {
+                        direction: 'top',
+                        offset: [0, -10]
+                    });
+                    this.simulatedDriverMarkersNav.push(marker);
+                }
+            });
+        }
+
+        // --- Passenger Map ---
+        if (this.passengerMap) {
+            // Eliminar marcadores anteriores
+            this.simulatedDriverMarkersPassenger.forEach(m => this.passengerMap.removeLayer(m));
+            this.simulatedDriverMarkersPassenger = [];
+
+            // Añadir nuevos marcadores
+            drivers.forEach(d => {
+                if (d.lat !== null && d.lng !== null) {
+                    const marker = L.marker([d.lat, d.lng], {
+                        icon: L.divIcon({
+                            className: 'simulated-driver-icon',
+                            html: '<i class="fa-solid fa-bus" style="color: #ff9800; font-size: 16px; text-shadow: 1px 1px 2px #000;"></i>',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        })
+                    }).addTo(this.passengerMap);
+
+                    const sign = d.deviation <= 0 ? '+' : '-';
+                    const absDev = Math.abs(d.deviation);
+                    const m = Math.floor(absDev / 60).toString().padStart(2, '0');
+                    const s = (absDev % 60).toString().padStart(2, '0');
+                    const devStr = `${sign}${m}:${s}`;
+
+                    marker.bindTooltip(`<b>${d.lineName}</b><br>${d.bannerName}<br>${devStr}`, {
+                        direction: 'top',
+                        offset: [0, -10]
+                    });
+                    this.simulatedDriverMarkersPassenger.push(marker);
+                }
+            });
+        }
     }
 };

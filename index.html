@@ -90,6 +90,11 @@
             </div>
             <button id="btn-start-sim">Iniciar Simulación</button>
 
+            <h3>Choferes Simulados (Activos)</h3>
+            <div id="simulated-drivers-container" style="max-height: 200px; overflow-y: auto; background: #e0e0e0; padding: 10px; border-radius: 5px;">
+                <i>Sin choferes simulados activos.</i>
+            </div>
+
             <!-- Interruptor de Modo Manual (Movido aquí) -->
             <div class="manual-control-container">
                  <div class="switch-container">
@@ -237,6 +242,9 @@
             <div class="actions" style="flex-direction: column; gap: 15px;">
                 <button id="btn-menu-editor" class="btn-primary" style="width: 100%; padding: 15px;">
                     <i class="fa-solid fa-map-location-dot"></i> Editor de Banderas
+                </button>
+                <button id="btn-menu-stop-nav" class="btn-primary" style="background-color: #ff9800; width: 100%; padding: 15px;">
+                    <i class="fa-solid fa-stop"></i> Detener Navegación
                 </button>
                 <button id="btn-menu-logout" class="btn-danger" style="width: 100%; padding: 15px;">
                     <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión

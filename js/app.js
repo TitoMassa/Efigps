@@ -1269,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let stopsToUse = [];
         let isFutureTrip = false;
         let targetTimeSec = 0;
+        let targetStop = null;
 
         let currentLat = null;
         let currentLng = null;
@@ -1296,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const targetStopIndex = parseInt(stopIndexStr, 10);
-            const targetStop = stopsToUse[targetStopIndex];
+            targetStop = stopsToUse[targetStopIndex];
             targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
             const pos = getCurrentPosition();
@@ -1336,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             stopsToUse = driver.trips[tripIndex].stops;
             const targetStopIndex = parseInt(stopIndexStr, 10);
-            const targetStop = stopsToUse[targetStopIndex];
+            targetStop = stopsToUse[targetStopIndex];
             targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
             if (driver.lat === null || driver.lng === null) {

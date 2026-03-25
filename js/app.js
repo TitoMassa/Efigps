@@ -659,10 +659,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         break;
                 }
 
-                // Actualizar y limitar el offset
+                // Actualizar el offset (sin límite visual)
                 driver.timeOffset += speedMod;
-                // Limitamos la ganancia máxima de adelanto a 5 minutos, y atraso a 20 minutos.
-                driver.timeOffset = Math.max(-1200, Math.min(300, driver.timeOffset));
 
                 // Guardar el estado
                 persistentDrivers[line.id].timeOffset = driver.timeOffset;

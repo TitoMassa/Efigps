@@ -688,40 +688,70 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Si el chofer debe iniciar un viaje, NO DEBE salir adelantado de la punta de línea,
-                // no importa si llegó en estado 'fast' con mucho tiempo de ventaja.
+                // Lógica de "quema" de tiempo en la punta de línea:
+                // Si el chofer es rápido y tiene timeOffset positivo (simTimeSec > currentTimeSec),
+                // significa que va "adelantado".
+                // Pero si la hora real (currentTimeSec) todavía no superó la hora de inicio de su viaje actual (startSec),
+                // entonces el chofer está en la punta de línea esperando.
+                // Mientras espera en la punta de línea, no puede "ganar" tiempo, sino que el tiempo lo "alcanza",
+                // por lo tanto, reducimos su timeOffset hasta que sea 0 o ligeramente negativo.
                 if (currentTrip) {
                     const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
 
-                    // Si la hora real todavía no alcanzó la hora programada de salida del tramo
-                    // pero el chofer, debido a su física (timeOffset > 0) ya "arrancó",
-                    // forzamos que se quede en ESPERA reteniendo su timeOffset (lo negamos proporcionalmente).
-
-                    // Si todavía es hora de estar cerca de la punta de línea (primeros 3 mins)
-                    if (currentTimeSec <= startSec + 180) {
+                    if (currentTimeSec <= startSec + 120) {
                         if (driver.timeOffset > 0) {
-                            // Nunca salir adelantado. Puede salir un poquitito tarde a propósito (0 a 15 seg).
-                            const lateStart = -(Math.floor(Math.random() * 15));
-                            driver.timeOffset = lateStart;
-                            simTimeSec = currentTimeSec + lateStart;
+                            // Está adelantado pero aún no es hora de salir.
+                            // Si simTimeSec ya superó startSec, lo frenamos exactamente en startSec
+                            // para que la simulación lo deje esperando en la punta de línea.
+                            if (simTimeSec >= startSec) {
+                                driver.timeOffset = startSec - currentTimeSec;
+                                // Ojo: a medida que currentTimeSec aumenta, timeOffset bajará hasta 0.
+                                // Nunca sale adelantado, a lo sumo sale con timeOffset = 0 (exactamente a tiempo)
+                                // o le podemos agregar un pequeño retraso natural humano en el arranque (0 a 10s tarde).
+                                if (driver.timeOffset <= 0) {
+                                     driver.timeOffset = -(Math.floor(Math.random() * 10));
+                                }
 
-                            persistentDrivers[line.id].timeOffset = driver.timeOffset;
-                            localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                                simTimeSec = currentTimeSec + driver.timeOffset;
+                                persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                                localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                            }
                         }
                     }
                 }
 
-                // Ahora determinamos el viaje exacto según su tiempo simulado para su física
+                // Ahora determinamos la física del viaje
                 let physicsTrip = null;
                 let physicsTripIndex = -1;
+                let isWaiting = false;
+                let waitingTrip = null;
+
                 for (let i = 0; i < trips.length; i++) {
                     const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
                     const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
+
                     if (simTimeSec >= startSec && simTimeSec <= endSec) {
                         physicsTrip = trips[i];
                         physicsTripIndex = i;
                         break;
+                    } else if (simTimeSec < startSec) {
+                        // El simulador está temporalmente "antes" del siguiente viaje, por lo tanto en espera.
+                        isWaiting = true;
+                        waitingTrip = trips[i];
+                        physicsTripIndex = i;
+                        break;
                     }
+                }
+
+                // Si no encontramos viaje y simTimeSec superó todo el itinerario, se queda en el último
+                if (!physicsTrip && !isWaiting && trips.length > 0) {
+                     const lastTrip = trips[trips.length - 1];
+                     const endSec = RouteLogic.timeToSeconds(lastTrip.stops[lastTrip.stops.length - 1].time);
+                     if (simTimeSec > endSec) {
+                         isWaiting = true;
+                         waitingTrip = lastTrip;
+                         physicsTripIndex = trips.length - 1;
+                     }
                 }
 
                 if (physicsTrip) {
@@ -769,8 +799,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
+                } else if (isWaiting && waitingTrip) {
+                     // El chofer está descansando/esperando iniciar o continuar su circuito.
+                     driver.currentTripIndex = physicsTripIndex;
+                     driver.bannerName = waitingTrip.routeOriginalName || waitingTrip.direction;
+
+                     // Mantener el marcador clavado en la parada relevante (si va a arrancar, la primera; si ya terminó todo, la última).
+                     const startSec = RouteLogic.timeToSeconds(waitingTrip.stops[0].time);
+                     if (simTimeSec < startSec) {
+                         // Esperando para iniciar este viaje, lo ponemos en la primera parada
+                         driver.lat = waitingTrip.stops[0].lat;
+                         driver.lng = waitingTrip.stops[0].lng;
+                         // Su desviación mientras espera es literalmente su timeOffset actual comparado con el horario de inicio
+                         // Para simplificar la visualización de su estado general, podemos mostrar el timeOffset directamente
+                         // ya que eso refleja cuán adelantado/atrasado está sobre su "fantasma" programado globalmente.
+                         driver.deviation = driver.timeOffset;
+                     } else {
+                         // Superó todos los viajes, se clava en la última parada del último viaje
+                         const lastStop = waitingTrip.stops[waitingTrip.stops.length - 1];
+                         driver.lat = lastStop.lat;
+                         driver.lng = lastStop.lng;
+                         driver.deviation = driver.timeOffset;
+                     }
                 } else {
-                     driver.bannerName = "ESPERA";
+                     // Caso por defecto por si no entra en ningún viaje o espera válida
+                     driver.bannerName = "TERMINADO";
                      driver.deviation = 0;
                      driver.lat = null;
                      driver.lng = null;

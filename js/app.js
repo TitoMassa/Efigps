@@ -695,6 +695,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // Lógica de Absorción Instantánea de Atraso en Punta de Línea:
+                // Si el chofer llega atrasado a la terminal, debe usar sus minutos de descanso
+                // programados para compensar ese atraso INSTANTÁNEAMENTE.
+                if (currentTrip && tripIndex > 0) {
+                     const prevTripEndSec = RouteLogic.timeToSeconds(trips[tripIndex-1].stops[trips[tripIndex-1].stops.length - 1].time);
+                     const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
+
+                     // Calculamos cuánto tiempo de descanso tenía programado
+                     let scheduledWait = startSec - prevTripEndSec;
+                     if (scheduledWait < 0) scheduledWait += 86400;
+
+                     // Si el tiempo físico (simTimeSec) acaba de alcanzar o superar el fin del viaje anterior,
+                     // significa que el chofer FÍSICAMENTE acaba de llegar a la terminal
+                     if (driver.timeOffset < 0 && simTimeSec >= prevTripEndSec && simTimeSec <= startSec) {
+                          // Absorbemos el atraso instantáneamente usando la espera programada
+                          const currentDelay = Math.abs(driver.timeOffset);
+                          const absorbable = Math.min(scheduledWait, currentDelay);
+
+                          if (absorbable > 0) {
+                              // El chofer reduce su atraso gracias al descanso
+                              driver.timeOffset += absorbable;
+                              simTimeSec = currentTimeSec + driver.timeOffset;
+
+                              persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                              localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                          }
+                     }
+                }
+
                 // Lógica de "quema" de tiempo en la punta de línea:
                 // Si el chofer es rápido y tiene timeOffset positivo (simTimeSec > currentTimeSec),
                 // significa que va "adelantado".

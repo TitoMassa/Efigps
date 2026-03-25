@@ -1008,6 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let deviationSec = 0;
         let isTerminalAndEarly = false;
+        let isOutsideTerminal = false;
         let expectedCurrentLocationTimeSec = null;
 
         // Intentar calcular desviación real usando la lógica principal (en el tramo actual)
@@ -1020,7 +1021,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Verificar si estamos en Punta de Línea del VIAJE ACTUAL (primer parada, < 50m)
             const startStop = state.currentRoute.stops[0];
             const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
-            if (dist <= 50 && deviationSec > 0) {
+            isOutsideTerminal = dist > 50;
+            if (!isOutsideTerminal && deviationSec > 0) {
                 isTerminalAndEarly = true;
             }
         } else {
@@ -1044,9 +1046,15 @@ document.addEventListener('DOMContentLoaded', () => {
             etaSec += 86400; // Sumar 24 horas en segundos
         }
 
-        // Si el colectivo está adelantado en punta de línea actual, DEBE SUMARSE el adelanto para que el ETA refleje el tiempo de espera extra.
-        if (isTerminalAndEarly) {
-            etaSec += deviationSec;
+        // Ajuste de ETA según el adelanto
+        if (deviationSec > 0) {
+            // El adelanto sólo descuenta tiempo a la vista de pasajeros cuando:
+            // 1. La parada seleccionada es del tramo actual (!isFutureTrip)
+            // 2. Salió del radio de la punta de línea (isOutsideTerminal)
+            // Si no se cumplen estas condiciones, el ETA debe ser el programado sumando de vuelta el adelanto.
+            if (isFutureTrip || !isOutsideTerminal) {
+                etaSec += deviationSec;
+            }
         }
 
         // Formatear el ETA

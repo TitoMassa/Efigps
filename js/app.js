@@ -578,7 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             name: `${ln} ${fn1} ${fn2} (${legajo})`,
                             legajo: legajo,
                             timeOffset: initialTimeOffset,
-                            showTrace: false
+                            showTrace: false,
+                            driveState: 'normal',
+                            stateTimeLeft: 60 // Segundos restantes en el estado actual
                         };
                         persistentDrivers[line.id] = pDriver;
                         localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
@@ -591,6 +593,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         legajo: pDriver.legajo,
                         timeOffset: pDriver.timeOffset, // Controla físicamente qué tan rápido va en la simulación
                         showTrace: pDriver.showTrace || false,
+                        driveState: pDriver.driveState || 'normal',
+                        stateTimeLeft: pDriver.stateTimeLeft || 60,
                         deviation: 0, // Se calculará abajo basándose en la posición física real
                         lat: null,
                         lng: null,
@@ -604,6 +608,67 @@ document.addEventListener('DOMContentLoaded', () => {
                         driver.showTrace = persistentDrivers[line.id].showTrace;
                     }
                 }
+
+                // --- SISTEMA DE TENDENCIAS DE CONDUCCIÓN ---
+                // Se resta 1 segundo al estado actual en cada tick
+                driver.stateTimeLeft--;
+
+                // Si se acabó el tiempo del estado actual, cambiamos de estado
+                if (driver.stateTimeLeft <= 0) {
+                    const r = Math.random();
+                    // Probabilidades de cambiar de estado:
+                    // 60% Normal (mantiene velocidad)
+                    // 15% Tráfico (se atrasa mucho)
+                    // 15% Apurado (intenta recuperar tiempo atrasado)
+                    // 10% Fluido (pocos pasajeros, sin semáforos, se adelanta un poco)
+
+                    if (r < 0.60) {
+                        driver.driveState = 'normal';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 120) + 60; // 1 a 3 mins
+                    } else if (r < 0.75) {
+                        driver.driveState = 'traffic';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 180) + 60; // 1 a 4 mins
+                    } else if (r < 0.90) {
+                        driver.driveState = 'rushing';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 120) + 60; // 1 a 3 mins
+                    } else {
+                        driver.driveState = 'fast';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 90) + 30; // 30s a 2 mins
+                    }
+                }
+
+                // Aplicar la tendencia de tiempo según el estado
+                // driver.timeOffset positivo significa adelantado, negativo significa atrasado
+                let speedMod = 0;
+                switch (driver.driveState) {
+                    case 'normal':
+                        // Oscilación muy leve, mantiene el ritmo programado (+- 0.5 sec)
+                        speedMod = (Math.random() > 0.5 ? 1 : -1) * (Math.random() > 0.5 ? 1 : 0);
+                        break;
+                    case 'traffic':
+                        // Pierde tiempo constantemente (pierde entre 0 y 2 segundos reales por cada segundo de simulación)
+                        speedMod = -Math.floor(Math.random() * 3);
+                        break;
+                    case 'rushing':
+                        // Gana tiempo para recuperar (gana entre 0 y 2 segundos)
+                        speedMod = Math.floor(Math.random() * 3);
+                        break;
+                    case 'fast':
+                        // Gana tiempo porque va fluido, incluso adelantándose (gana entre 1 y 3 segundos)
+                        speedMod = Math.floor(Math.random() * 3) + 1;
+                        break;
+                }
+
+                // Actualizar y limitar el offset
+                driver.timeOffset += speedMod;
+                // Limitamos la ganancia máxima de adelanto a 5 minutos, y atraso a 20 minutos.
+                driver.timeOffset = Math.max(-1200, Math.min(300, driver.timeOffset));
+
+                // Guardar el estado
+                persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                persistentDrivers[line.id].driveState = driver.driveState;
+                persistentDrivers[line.id].stateTimeLeft = driver.stateTimeLeft;
+                localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
 
                 // La posición física del chofer está dictada por su timeOffset
                 let simTimeSec = currentTimeSec + driver.timeOffset;
@@ -623,40 +688,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Si está en un viaje, comprobamos si está en la punta de línea y adelantado
+                // Si el chofer debe iniciar un viaje, NO DEBE salir adelantado de la punta de línea,
+                // no importa si llegó en estado 'fast' con mucho tiempo de ventaja.
                 if (currentTrip) {
                     const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
 
-                    // Si el chofer está adelantado (simTimeSec > currentTimeSec) pero todavía está en tiempo
-                    // de estar cerca de la terminal, forzamos a que no salga adelantado.
-                    // Si currentTimeSec apenas pasó el startSec (ej. pasaron < 3 minutos), y tiene timeOffset positivo, lo clampamos.
-                    if (driver.timeOffset > 0 && currentTimeSec <= startSec + 180) {
-                        // En punta de línea nunca sale adelantado
-                        driver.timeOffset = 0;
-                        simTimeSec = currentTimeSec;
-                        persistentDrivers[line.id].timeOffset = 0;
-                        localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                    // Si la hora real todavía no alcanzó la hora programada de salida del tramo
+                    // pero el chofer, debido a su física (timeOffset > 0) ya "arrancó",
+                    // forzamos que se quede en ESPERA reteniendo su timeOffset (lo negamos proporcionalmente).
+
+                    // Si todavía es hora de estar cerca de la punta de línea (primeros 3 mins)
+                    if (currentTimeSec <= startSec + 180) {
+                        if (driver.timeOffset > 0) {
+                            // Nunca salir adelantado. Puede salir un poquitito tarde a propósito (0 a 15 seg).
+                            const lateStart = -(Math.floor(Math.random() * 15));
+                            driver.timeOffset = lateStart;
+                            simTimeSec = currentTimeSec + lateStart;
+
+                            persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                            localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                        }
                     }
-                }
-
-                // Random walk on timeOffset to humanize
-                if (Math.random() < 0.05) {
-                    driver.timeOffset += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
-                    driver.timeOffset = Math.max(-900, Math.min(900, driver.timeOffset));
-
-                    // Si el nuevo random walk lo pone adelantado en punta de línea, lo corregimos
-                    if (currentTrip) {
-                         const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
-                         if (driver.timeOffset > 0 && currentTimeSec <= startSec + 180) {
-                             driver.timeOffset = 0;
-                         }
-                    }
-
-                    // Persist
-                    persistentDrivers[line.id].timeOffset = driver.timeOffset;
-                    localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
-
-                    simTimeSec = currentTimeSec + driver.timeOffset;
                 }
 
                 // Ahora determinamos el viaje exacto según su tiempo simulado para su física

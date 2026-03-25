@@ -516,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function simulateDriversTick(now) {
         const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
         const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const persistentDrivers = JSON.parse(localStorage.getItem('gps_simulated_drivers') || '{}');
         const currentTimeSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
         // Determine the line currently driven by human (if any)
@@ -554,40 +555,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (now >= startDt && now <= endDt) {
                 if (!driver) {
-                    const firstNames = ["JUAN", "CARLOS", "MIGUEL", "JOSE", "LUIS", "DIEGO", "MARCOS", "PABLO", "GABRIEL", "ALEJANDRO"];
-                    const lastNames = ["GOMEZ", "RODRIGUEZ", "FERNANDEZ", "LOPEZ", "MARTINEZ", "PEREZ", "GARCIA", "SANCHEZ", "ROMERO", "SOSA"];
-                    const prefixes = ["10", "12", "14", "19", "98"];
+                    let pDriver = persistentDrivers[line.id];
 
-                    const fn1 = firstNames[Math.floor(Math.random() * firstNames.length)];
-                    const fn2 = firstNames[Math.floor(Math.random() * firstNames.length)];
-                    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+                    if (!pDriver) {
+                        const firstNames = ["JUAN", "CARLOS", "MIGUEL", "JOSE", "LUIS", "DIEGO", "MARCOS", "PABLO", "GABRIEL", "ALEJANDRO"];
+                        const lastNames = ["GOMEZ", "RODRIGUEZ", "FERNANDEZ", "LOPEZ", "MARTINEZ", "PEREZ", "GARCIA", "SANCHEZ", "ROMERO", "SOSA"];
+                        const prefixes = ["10", "12", "14", "19", "98"];
 
-                    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-                    const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-                    const legajo = prefix + suffix;
+                        const fn1 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                        const fn2 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                        const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
 
-                    const initialDev = Math.floor(Math.random() * 601) - 300;
+                        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                        const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                        const legajo = prefix + suffix;
+
+                        // Inicializar el offset de tiempo. Positivo = Chofer adelantado físicamente, Negativo = Atrasado.
+                        const initialTimeOffset = Math.floor(Math.random() * 601) - 300;
+
+                        pDriver = {
+                            name: `${ln} ${fn1} ${fn2} (${legajo})`,
+                            legajo: legajo,
+                            timeOffset: initialTimeOffset,
+                            showTrace: false
+                        };
+                        persistentDrivers[line.id] = pDriver;
+                        localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                    }
 
                     driver = {
                         lineId: line.id,
                         lineName: line.name,
-                        name: `${ln} ${fn1} ${fn2} (${legajo})`,
-                        legajo: legajo,
-                        deviation: initialDev,
+                        name: pDriver.name,
+                        legajo: pDriver.legajo,
+                        timeOffset: pDriver.timeOffset, // Controla físicamente qué tan rápido va en la simulación
+                        showTrace: pDriver.showTrace || false,
+                        deviation: 0, // Se calculará abajo basándose en la posición física real
                         lat: null,
                         lng: null,
                         currentTripIndex: 0,
                         trips: trips
                     };
                     state.simulatedDrivers.push(driver);
+                } else {
+                    // Update from persistence in case it changed (like showTrace)
+                    if (persistentDrivers[line.id]) {
+                        driver.showTrace = persistentDrivers[line.id].showTrace;
+                    }
                 }
 
+                // Random walk on timeOffset to humanize
                 if (Math.random() < 0.05) {
-                    driver.deviation += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
-                    driver.deviation = Math.max(-900, Math.min(900, driver.deviation));
+                    driver.timeOffset += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
+                    driver.timeOffset = Math.max(-900, Math.min(900, driver.timeOffset));
+
+                    // Persist
+                    persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                    localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
                 }
 
-                const simTimeSec = currentTimeSec + driver.deviation;
+                // La posición física del chofer está dictada por su timeOffset
+                const simTimeSec = currentTimeSec + driver.timeOffset;
 
                 let currentTrip = null;
                 let tripIndex = -1;
@@ -634,8 +662,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             break;
                         }
                     }
+
+                    // Ahora que tenemos la posición física, calculamos la desviación estrictamente en base a ella
+                    if (driver.lat !== null && driver.lng !== null) {
+                        const devResult = RouteLogic.calculateDeviation(driver.lat, driver.lng, stops, currentTimeSec);
+                        if (devResult) {
+                            driver.deviation = devResult.deviationSec;
+                        } else {
+                            driver.deviation = 0;
+                        }
+                    }
+
                 } else {
                      driver.bannerName = "ESPERA";
+                     driver.deviation = 0;
+                     driver.lat = null;
+                     driver.lng = null;
                 }
 
                 activeDrivers.push(driver);
@@ -658,22 +700,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = '';
         drivers.forEach(d => {
-            const sign = d.deviation <= 0 ? '+' : '-';
+            const sign = d.deviation >= 0 ? '+' : '-';
             const absDev = Math.abs(d.deviation);
             const m = Math.floor(absDev / 60).toString().padStart(2, '0');
-            const s = (absDev % 60).toString().padStart(2, '0');
+            const s = Math.floor(absDev % 60).toString().padStart(2, '0');
             const devStr = `${sign}${m}:${s}`;
 
+            const isChecked = d.showTrace ? 'checked' : '';
+
             html += `<div style="font-size:12px; font-family: 'Roboto Mono', monospace; background:#222; color:#fff; padding:5px; margin-bottom:5px; border-radius:3px;">
-                LINEA: ${d.lineName}<br>
-                BANDERA: ${d.bannerName}<br>
-                CHOFER: ${d.name}<br>
-                DESVIO: ${devStr}
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        LINEA: ${d.lineName}<br>
+                        BANDERA: ${d.bannerName}<br>
+                        CHOFER: ${d.name}<br>
+                        DESVIO: ${devStr}
+                    </div>
+                    <div style="text-align: center;">
+                        <input type="checkbox" id="trace-sim-${d.lineId}" onchange="window.toggleSimulatedTrace(${d.lineId}, this.checked)" ${isChecked}>
+                        <label for="trace-sim-${d.lineId}" style="display:block; font-size:10px; cursor:pointer;">Trazado</label>
+                    </div>
+                </div>
             </div>`;
         });
 
         els.simulatedDriversContainer.innerHTML = html;
     }
+
+    window.toggleSimulatedTrace = function(lineId, isChecked) {
+        const persistentDrivers = JSON.parse(localStorage.getItem('gps_simulated_drivers') || '{}');
+        if (persistentDrivers[lineId]) {
+            persistentDrivers[lineId].showTrace = isChecked;
+            localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+
+            // Update live state immediately
+            const driver = state.simulatedDrivers.find(d => d.lineId === lineId);
+            if (driver) {
+                driver.showTrace = isChecked;
+                updateClock(); // Force map render
+            }
+        }
+    };
 
     function updateClock() {
         const now = new Date();

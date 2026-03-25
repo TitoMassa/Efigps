@@ -42,6 +42,9 @@ const MapLogic = {
     /** @type {Array<L.Polyline>} Lista de polilíneas de trazado para choferes simulados en mapa de pasajeros */
     simulatedDriverTracesPassenger: [],
 
+    /** @type {Array<L.CircleMarker>} Lista de marcadores de parada para los trazados de choferes simulados (ambos mapas) */
+    simulatedDriverStopMarkers: [],
+
     /**
      * Inicializa el mapa del editor en el elemento DOM especificado.
      * Configura la vista inicial y el manejo de eventos de clic.
@@ -358,6 +361,13 @@ const MapLogic = {
      * @param {Array<Object>} drivers - Lista de choferes simulados activos.
      */
     renderSimulatedDrivers: function(drivers) {
+        // Limpiar marcadores de parada simulados de ambos mapas
+        this.simulatedDriverStopMarkers.forEach(m => {
+            if (this.navMap && this.navMap.hasLayer(m)) this.navMap.removeLayer(m);
+            if (this.passengerMap && this.passengerMap.hasLayer(m)) this.passengerMap.removeLayer(m);
+        });
+        this.simulatedDriverStopMarkers = [];
+
         // --- Navegación Map ---
         if (this.navMap) {
             // Eliminar marcadores y trazos anteriores
@@ -409,6 +419,18 @@ const MapLogic = {
                         }).addTo(this.navMap);
 
                         this.simulatedDriverTracesNav.push(polyline);
+
+                        stops.forEach(stop => {
+                            const stopMarker = L.circleMarker([stop.lat, stop.lng], {
+                                color: '#ff9800',
+                                fillColor: '#333',
+                                fillOpacity: 1,
+                                weight: 2,
+                                radius: 5
+                            }).addTo(this.navMap);
+                            stopMarker.bindPopup(`<strong>${stop.name}</strong>`);
+                            this.simulatedDriverStopMarkers.push(stopMarker);
+                        });
                     }
                 }
             });
@@ -465,6 +487,18 @@ const MapLogic = {
                         }).addTo(this.passengerMap);
 
                         this.simulatedDriverTracesPassenger.push(polyline);
+
+                        stops.forEach(stop => {
+                            const stopMarker = L.circleMarker([stop.lat, stop.lng], {
+                                color: '#ff9800',
+                                fillColor: '#333',
+                                fillOpacity: 1,
+                                weight: 2,
+                                radius: 5
+                            }).addTo(this.passengerMap);
+                            stopMarker.bindPopup(`<strong>${stop.name}</strong>`);
+                            this.simulatedDriverStopMarkers.push(stopMarker);
+                        });
                     }
                 }
             });

@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
             els.passengerSelectStop.addEventListener('change', () => {
                 updatePassengerETAs();
                 if (passengerMapVisible) {
-                    updatePassengerMap();
+                    updatePassengerMapLocation();
                 }
             });
         }
@@ -1364,7 +1364,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
-            els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
+            const lineName = els.passengerSelectLine.options[els.passengerSelectLine.selectedIndex].text;
+            els.passengerEtaList.innerHTML = `
+            <div class="eta-card" style="background-color: #666;">
+                <div class="eta-card-left">
+                    <div class="eta-line">${lineName}</div>
+                    <div class="eta-route">Colectivo ya pasó esta parada</div>
+                </div>
+            </div>`;
             return;
         }
 

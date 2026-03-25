@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTripIndex: -1,   // Índice del viaje actual
         isServiceFinished: false, // Indica si terminó todo el diagrama
 
+        // Simulated Drivers
+        simulatedDrivers: [], // Array of simulated driver objects
+
         // Driver Info
         driver: {
             driverId: null,
@@ -123,11 +126,15 @@ document.addEventListener('DOMContentLoaded', () => {
         userMenu: document.getElementById('user-menu-modal'),
         closeUserMenu: document.getElementById('close-user-menu'),
         btnMenuEditor: document.getElementById('btn-menu-editor'),
+        btnMenuStopNav: document.getElementById('btn-menu-stop-nav'),
         btnMenuLogout: document.getElementById('btn-menu-logout'),
 
         // Simulación
         simSlider: document.getElementById('sim-slider'),
         simStatus: document.getElementById('sim-status'),
+
+        // Conductores Simulados (General)
+        simulatedDriversContainer: document.getElementById('simulated-drivers-container') || null,
 
         // Modo Pasajeros
         btnPassengerMode: document.getElementById('btn-passenger-mode'),
@@ -261,6 +268,15 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnMenuEditor.addEventListener('click', () => {
                 els.userMenu.classList.add('hidden');
                 openEditor();
+            });
+        }
+
+        if (els.btnMenuStopNav) {
+            els.btnMenuStopNav.addEventListener('click', () => {
+                if(confirm("¿Seguro que desea detener la navegación actual?")) {
+                    stopNavigation();
+                    els.userMenu.classList.add('hidden');
+                }
             });
         }
 
@@ -497,6 +513,168 @@ document.addEventListener('DOMContentLoaded', () => {
      * Actualiza el reloj de la pantalla y desencadena la actualización de desviación.
      * Se ejecuta cada segundo.
      */
+    function simulateDriversTick(now) {
+        const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
+        const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const currentTimeSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+        // Determine the line currently driven by human (if any)
+        let humanLineId = null;
+        if (state.activeItinerary && state.activeItinerary.length > 0) {
+            const humanLineName = state.currentRoute ? state.currentRoute.lineName : null;
+            if (humanLineName) {
+                 const hLine = lines.find(l => l.name === humanLineName);
+                 if (hLine) humanLineId = hLine.id;
+            }
+        }
+
+        const activeDrivers = [];
+
+        lines.forEach(line => {
+            // Skip the human's line
+            if (line.id === humanLineId) return;
+
+            // Find or create simulated driver for this line
+            let driver = state.simulatedDrivers.find(d => d.lineId === line.id);
+
+            const trips = ScheduleLogic.calculateItinerary({
+                startTime: line.start,
+                endTime: line.end,
+                turns: line.turns,
+                rests: line.rests || []
+            }, savedRoutes);
+
+            if (!trips || trips.length === 0) {
+                if (driver) state.simulatedDrivers = state.simulatedDrivers.filter(d => d.lineId !== line.id);
+                return;
+            }
+
+            const startDt = new Date(line.start);
+            const endDt = new Date(line.end);
+
+            if (now >= startDt && now <= endDt) {
+                if (!driver) {
+                    const firstNames = ["JUAN", "CARLOS", "MIGUEL", "JOSE", "LUIS", "DIEGO", "MARCOS", "PABLO", "GABRIEL", "ALEJANDRO"];
+                    const lastNames = ["GOMEZ", "RODRIGUEZ", "FERNANDEZ", "LOPEZ", "MARTINEZ", "PEREZ", "GARCIA", "SANCHEZ", "ROMERO", "SOSA"];
+                    const prefixes = ["10", "12", "14", "19", "98"];
+
+                    const fn1 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                    const fn2 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+
+                    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                    const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                    const legajo = prefix + suffix;
+
+                    const initialDev = Math.floor(Math.random() * 601) - 300;
+
+                    driver = {
+                        lineId: line.id,
+                        lineName: line.name,
+                        name: `${ln} ${fn1} ${fn2} (${legajo})`,
+                        legajo: legajo,
+                        deviation: initialDev,
+                        lat: null,
+                        lng: null,
+                        currentTripIndex: 0,
+                        trips: trips
+                    };
+                    state.simulatedDrivers.push(driver);
+                }
+
+                if (Math.random() < 0.05) {
+                    driver.deviation += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
+                    driver.deviation = Math.max(-900, Math.min(900, driver.deviation));
+                }
+
+                const simTimeSec = currentTimeSec + driver.deviation;
+
+                let currentTrip = null;
+                let tripIndex = -1;
+
+                for (let i = 0; i < trips.length; i++) {
+                    const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
+                    const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
+                    if (simTimeSec >= startSec && simTimeSec <= endSec) {
+                        currentTrip = trips[i];
+                        tripIndex = i;
+                        break;
+                    }
+                }
+
+                if (currentTrip) {
+                    driver.currentTripIndex = tripIndex;
+                    driver.bannerName = currentTrip.routeOriginalName || currentTrip.direction;
+
+                    const stops = currentTrip.stops;
+                    for (let i = 0; i < stops.length - 1; i++) {
+                        const t1 = RouteLogic.timeToSeconds(stops[i].time);
+                        const t2 = RouteLogic.timeToSeconds(stops[i+1].time);
+                        if (simTimeSec >= t1 && simTimeSec <= t2) {
+                            const ratio = t2 === t1 ? 0 : (simTimeSec - t1) / (t2 - t1);
+                            const points = RouteLogic.getSegmentPoints(stops[i], stops[i+1]);
+                            const totalDist = RouteLogic.getPathTotalDistance(points);
+                            const targetDist = totalDist * ratio;
+
+                            let accumDist = 0;
+                            for(let j = 0; j < points.length - 1; j++) {
+                                const d = RouteLogic.getDistance(points[j].lat, points[j].lng, points[j+1].lat, points[j+1].lng);
+                                if (accumDist + d >= targetDist) {
+                                    const subRatio = d === 0 ? 0 : (targetDist - accumDist) / d;
+                                    driver.lat = points[j].lat + (points[j+1].lat - points[j].lat) * subRatio;
+                                    driver.lng = points[j].lng + (points[j+1].lng - points[j].lng) * subRatio;
+                                    break;
+                                }
+                                accumDist += d;
+                            }
+                            if (driver.lat === null && points.length > 0) {
+                                 driver.lat = points[points.length-1].lat;
+                                 driver.lng = points[points.length-1].lng;
+                            }
+                            break;
+                        }
+                    }
+                } else {
+                     driver.bannerName = "ESPERA";
+                }
+
+                activeDrivers.push(driver);
+            } else {
+                if (driver) state.simulatedDrivers = state.simulatedDrivers.filter(d => d.lineId !== line.id);
+            }
+        });
+
+        renderSimulatedDrivers(activeDrivers);
+        MapLogic.renderSimulatedDrivers(activeDrivers);
+    }
+
+    function renderSimulatedDrivers(drivers) {
+        if (!els.simulatedDriversContainer) return;
+
+        if (drivers.length === 0) {
+            els.simulatedDriversContainer.innerHTML = '<i>Sin choferes simulados activos.</i>';
+            return;
+        }
+
+        let html = '';
+        drivers.forEach(d => {
+            const sign = d.deviation <= 0 ? '+' : '-';
+            const absDev = Math.abs(d.deviation);
+            const m = Math.floor(absDev / 60).toString().padStart(2, '0');
+            const s = (absDev % 60).toString().padStart(2, '0');
+            const devStr = `${sign}${m}:${s}`;
+
+            html += `<div style="font-size:12px; font-family: 'Roboto Mono', monospace; background:#222; color:#fff; padding:5px; margin-bottom:5px; border-radius:3px;">
+                LINEA: ${d.lineName}<br>
+                BANDERA: ${d.bannerName}<br>
+                CHOFER: ${d.name}<br>
+                DESVIO: ${devStr}
+            </div>`;
+        });
+
+        els.simulatedDriversContainer.innerHTML = html;
+    }
+
     function updateClock() {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('es-AR', { hour12: false });
@@ -505,6 +683,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentRoute) {
             updateDeviation(now);
         }
+
+        simulateDriversTick(now);
 
         // Update Info Bar if data changed or just to ensure consistency
         updateInfoBar();
@@ -857,32 +1037,53 @@ document.addEventListener('DOMContentLoaded', () => {
         els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
         els.passengerEtaList.innerHTML = '';
 
-        if (!state.currentRoute) {
+        const addedLines = new Set();
+        let hasCirculation = false;
+
+        // 1. Agregar línea del usuario humano
+        if (state.currentRoute) {
+            hasCirculation = true;
+            let currentLineName = state.currentRoute.lineName || "";
+            if (!currentLineName && state.activeItinerary) {
+                const parts = state.currentRoute.name.split('(');
+                currentLineName = parts[0].trim();
+            }
+
+            if (currentLineName) {
+                const opt = document.createElement('option');
+                opt.value = `human_${currentLineName}`;
+                opt.textContent = currentLineName;
+                els.passengerSelectLine.appendChild(opt);
+                addedLines.add(currentLineName);
+            } else {
+                const opt = document.createElement('option');
+                opt.value = "human_current";
+                opt.textContent = "Línea Actual";
+                els.passengerSelectLine.appendChild(opt);
+                addedLines.add("Línea Actual");
+            }
+        }
+
+        // 2. Agregar líneas de choferes simulados
+        if (state.simulatedDrivers && state.simulatedDrivers.length > 0) {
+            state.simulatedDrivers.forEach(d => {
+                if (!addedLines.has(d.lineName)) {
+                    hasCirculation = true;
+                    const opt = document.createElement('option');
+                    opt.value = `sim_${d.lineId}`;
+                    opt.textContent = d.lineName;
+                    els.passengerSelectLine.appendChild(opt);
+                    addedLines.add(d.lineName);
+                }
+            });
+        }
+
+        if (!hasCirculation) {
             els.passengerEtaList.innerHTML = '<p style="text-align:center; padding: 20px;">No hay colectivos en circulación en este momento.</p>';
             return;
         }
 
-        // Determinar línea actual (del currentRoute o fallback)
-        let currentLineName = state.currentRoute.lineName || "";
-        if (!currentLineName && state.activeItinerary) {
-            const parts = state.currentRoute.name.split('(');
-            currentLineName = parts[0].trim();
-        }
-
-        if (currentLineName) {
-            const opt = document.createElement('option');
-            opt.value = currentLineName;
-            opt.textContent = currentLineName;
-            els.passengerSelectLine.appendChild(opt);
-        } else {
-            // Si es manual sin nombre de línea, ponemos una genérica o el nombre de la ruta
-            const opt = document.createElement('option');
-            opt.value = "LINEA ACTUAL";
-            opt.textContent = "Línea Actual";
-            els.passengerSelectLine.appendChild(opt);
-        }
-
-        // Autoseleccionar la única opción
+        // Autoseleccionar la primera línea disponible si hay
         if (els.passengerSelectLine.options.length > 1) {
             els.passengerSelectLine.selectedIndex = 1;
             updatePassengerRoutes();
@@ -894,42 +1095,47 @@ document.addEventListener('DOMContentLoaded', () => {
         els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
         els.passengerEtaList.innerHTML = '';
 
-        if (!state.currentRoute || els.passengerSelectLine.value === "") return;
+        const selectedVal = els.passengerSelectLine.value;
+        if (!selectedVal) return;
 
-        // Si estamos en Modo PRO (Itinerario Activo), mostrar el tramo actual y los futuros del mismo servicio
-        if (state.activeItinerary && state.activeTripIndex >= 0) {
-            const addedBanners = new Set();
+        if (selectedVal.startsWith("human_")) {
+            // Human user
+            if (!state.currentRoute) return;
 
-            // Iterar desde el viaje actual hasta el final del itinerario
-            for (let i = state.activeTripIndex; i < state.activeItinerary.length; i++) {
-                const trip = state.activeItinerary[i];
-                const bannerName = trip.routeOriginalName || trip.direction; // O usar trip.direction ('Ida', 'Vuelta') si prefiere
-
-                // Evitar duplicados (ej: no mostrar dos veces "VUELTA" si hay varias vueltas, o sí, dependiendo de la necesidad)
-                // Usaremos un identificador único que incluya el nombre de la bandera y el tramo para distinguirlos
-                const uniqueName = `${bannerName} (Tramo ${i + 1})`;
-
-                const opt = document.createElement('option');
-                opt.value = i; // Guardamos el índice del viaje en el itinerario
-                opt.textContent = uniqueName;
-
-                // Marcar el actual
-                if (i === state.activeTripIndex) {
-                    opt.textContent = `${bannerName} (Actual)`;
+            if (state.activeItinerary && state.activeTripIndex >= 0) {
+                for (let i = state.activeTripIndex; i < state.activeItinerary.length; i++) {
+                    const trip = state.activeItinerary[i];
+                    const bannerName = trip.routeOriginalName || trip.direction;
+                    const uniqueName = `${bannerName} (Tramo ${i + 1})`;
+                    const opt = document.createElement('option');
+                    opt.value = `human_${i}`;
+                    opt.textContent = i === state.activeTripIndex ? `${bannerName} (Actual)` : uniqueName;
+                    els.passengerSelectRoute.appendChild(opt);
                 }
-
+            } else {
+                let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
+                const opt = document.createElement('option');
+                opt.value = "human_current";
+                opt.textContent = currentBannerName;
                 els.passengerSelectRoute.appendChild(opt);
             }
-        } else {
-            // Modo Manual Simple: Solo existe la ruta actual
-            let currentBannerName = state.currentRoute.bannerName || state.currentRoute.name;
-            const opt = document.createElement('option');
-            opt.value = "current"; // Identificador especial para modo simple
-            opt.textContent = currentBannerName;
-            els.passengerSelectRoute.appendChild(opt);
+        } else if (selectedVal.startsWith("sim_")) {
+            // Simulated user
+            const lineId = parseInt(selectedVal.replace("sim_", ""));
+            const driver = state.simulatedDrivers.find(d => d.lineId === lineId);
+            if (driver && driver.trips) {
+                for (let i = driver.currentTripIndex; i < driver.trips.length; i++) {
+                    const trip = driver.trips[i];
+                    const bannerName = trip.routeOriginalName || trip.direction;
+                    const uniqueName = `${bannerName} (Tramo ${i + 1})`;
+                    const opt = document.createElement('option');
+                    opt.value = `sim_${lineId}_${i}`;
+                    opt.textContent = i === driver.currentTripIndex ? `${bannerName} (Actual)` : uniqueName;
+                    els.passengerSelectRoute.appendChild(opt);
+                }
+            }
         }
 
-        // Autoseleccionar la primera opción (la actual)
         if (els.passengerSelectRoute.options.length > 1) {
             els.passengerSelectRoute.selectedIndex = 1;
             updatePassengerStops();
@@ -940,15 +1146,31 @@ document.addEventListener('DOMContentLoaded', () => {
         els.passengerSelectStop.innerHTML = '<option value="">Seleccione Parada</option>';
         els.passengerEtaList.innerHTML = '';
 
-        if (!state.currentRoute || els.passengerSelectRoute.value === "") return;
+        const selectedRouteVal = els.passengerSelectRoute.value;
+        if (!selectedRouteVal) return;
 
-        const val = els.passengerSelectRoute.value;
-        let stopsToUse = state.currentRoute.stops;
+        let stopsToUse = [];
 
-        if (val !== "current" && state.activeItinerary) {
-            const tripIndex = parseInt(val, 10);
-            if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
-                stopsToUse = state.activeItinerary[tripIndex].stops;
+        if (selectedRouteVal.startsWith("human_")) {
+            if (!state.currentRoute) return;
+            stopsToUse = state.currentRoute.stops;
+
+            const val = selectedRouteVal.replace("human_", "");
+            if (val !== "current" && state.activeItinerary) {
+                const tripIndex = parseInt(val, 10);
+                if (!isNaN(tripIndex) && state.activeItinerary[tripIndex]) {
+                    stopsToUse = state.activeItinerary[tripIndex].stops;
+                }
+            }
+        } else if (selectedRouteVal.startsWith("sim_")) {
+            const parts = selectedRouteVal.replace("sim_", "").split("_");
+            if (parts.length === 2) {
+                const lineId = parseInt(parts[0]);
+                const tripIndex = parseInt(parts[1]);
+                const driver = state.simulatedDrivers.find(d => d.lineId === lineId);
+                if (driver && driver.trips && driver.trips[tripIndex]) {
+                    stopsToUse = driver.trips[tripIndex].stops;
+                }
             }
         }
 
@@ -970,94 +1192,127 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePassengerETAs() {
         const stopIndexStr = els.passengerSelectStop.value;
         const routeVal = els.passengerSelectRoute.value;
+        const lineVal = els.passengerSelectLine.value;
 
-        if (stopIndexStr === "" || !state.currentRoute) {
+        if (stopIndexStr === "" || !lineVal) {
             els.passengerEtaList.innerHTML = '';
             return;
         }
 
-        // Determinar qué lista de paradas estamos usando (viaje actual o viaje futuro)
-        let stopsToUse = state.currentRoute.stops;
+        let stopsToUse = [];
         let isFutureTrip = false;
+        let targetTimeSec = 0;
 
-        if (routeVal !== "current" && state.activeItinerary) {
-            const selectedTripIndex = parseInt(routeVal, 10);
-            if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
-                isFutureTrip = true;
-            }
-            if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
-                stopsToUse = state.activeItinerary[selectedTripIndex].stops;
-            }
-        }
-
-        const targetStopIndex = parseInt(stopIndexStr, 10);
-        const targetStop = stopsToUse[targetStopIndex];
-
-        // 1. Obtener tiempo programado de la parada destino
-        const targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
-
-        // 2. Obtener posición actual y desviación del colectivo (siempre relativo al viaje actual)
-        const pos = getCurrentPosition();
-        if (!pos) {
-            els.passengerEtaList.innerHTML = '<p style="text-align:center;">Esperando señal GPS...</p>';
-            return;
-        }
+        let currentLat = null;
+        let currentLng = null;
+        let deviationSec = 0;
+        let expectedCurrentLocationTimeSec = null;
+        let isOutsideTerminal = false;
 
         const now = new Date();
         const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
-        let deviationSec = 0;
-        let isTerminalAndEarly = false;
-        let isOutsideTerminal = false;
-        let expectedCurrentLocationTimeSec = null;
+        if (lineVal.startsWith("human_")) {
+            if (!state.currentRoute) return;
 
-        // Intentar calcular desviación real usando la lógica principal (en el tramo actual)
-        const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+            stopsToUse = state.currentRoute.stops;
 
-        if (devResult) {
-            deviationSec = devResult.deviationSec; // (+) es adelantado, (-) es atrasado
-            expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
-
-            // Verificar si estamos en Punta de Línea del VIAJE ACTUAL (primer parada, < 50m)
-            const startStop = state.currentRoute.stops[0];
-            const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
-            isOutsideTerminal = dist > 50;
-            if (!isOutsideTerminal && deviationSec > 0) {
-                isTerminalAndEarly = true;
+            if (routeVal !== "human_current" && state.activeItinerary) {
+                const val = routeVal.replace("human_", "");
+                const selectedTripIndex = parseInt(val, 10);
+                if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
+                    isFutureTrip = true;
+                }
+                if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
+                    stopsToUse = state.activeItinerary[selectedTripIndex].stops;
+                }
             }
-        } else {
-             els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
-             return;
+
+            const targetStopIndex = parseInt(stopIndexStr, 10);
+            const targetStop = stopsToUse[targetStopIndex];
+            targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
+
+            const pos = getCurrentPosition();
+            if (!pos) {
+                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Esperando señal GPS...</p>';
+                return;
+            }
+            currentLat = pos.lat;
+            currentLng = pos.lng;
+
+            const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+            if (devResult) {
+                deviationSec = devResult.deviationSec;
+                expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
+
+                const startStop = state.currentRoute.stops[0];
+                const dist = RouteLogic.getDistance(pos.lat, pos.lng, startStop.lat, startStop.lng) * 1000;
+                isOutsideTerminal = dist > 50;
+            } else {
+                 els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
+                 return;
+            }
+
+        } else if (lineVal.startsWith("sim_")) {
+            const lineId = parseInt(lineVal.replace("sim_", ""));
+            const driver = state.simulatedDrivers.find(d => d.lineId === lineId);
+            if (!driver) {
+                 els.passengerEtaList.innerHTML = '';
+                 return;
+            }
+
+            const parts = routeVal.replace("sim_", "").split("_");
+            const tripIndex = parseInt(parts[1]);
+            if (tripIndex > driver.currentTripIndex) {
+                 isFutureTrip = true;
+            }
+
+            stopsToUse = driver.trips[tripIndex].stops;
+            const targetStopIndex = parseInt(stopIndexStr, 10);
+            const targetStop = stopsToUse[targetStopIndex];
+            targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
+
+            if (driver.lat === null || driver.lng === null) {
+                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Chofer en espera...</p>';
+                return;
+            }
+
+            currentLat = driver.lat;
+            currentLng = driver.lng;
+
+            const currentTripStops = driver.trips[driver.currentTripIndex].stops;
+            const devResult = RouteLogic.calculateDeviation(currentLat, currentLng, currentTripStops, currentSec);
+
+            if (devResult) {
+                deviationSec = devResult.deviationSec;
+                expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
+
+                const startStop = currentTripStops[0];
+                const dist = RouteLogic.getDistance(currentLat, currentLng, startStop.lat, startStop.lng) * 1000;
+                isOutsideTerminal = dist > 50;
+            } else {
+                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
+                return;
+            }
         }
 
-        // Si ya pasó la parada destino en el viaje actual (y no es un viaje futuro)
         if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
             els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
             return;
         }
 
-        // Cálculo de ETA
-        // Diferencia entre horario programado del destino (puede ser de un viaje futuro)
-        // y el horario programado de la ubicación actual.
         let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
 
-        // Si el viaje es futuro y cruza la medianoche (etaSec es negativo a pesar de ser futuro)
         if (etaSec < 0 && isFutureTrip) {
-            etaSec += 86400; // Sumar 24 horas en segundos
+            etaSec += 86400;
         }
 
-        // Ajuste de ETA según el adelanto
         if (deviationSec > 0) {
-            // El adelanto sólo descuenta tiempo a la vista de pasajeros cuando:
-            // 1. La parada seleccionada es del tramo actual (!isFutureTrip)
-            // 2. Salió del radio de la punta de línea (isOutsideTerminal)
-            // Si no se cumplen estas condiciones, el ETA debe ser el programado sumando de vuelta el adelanto.
             if (isFutureTrip || !isOutsideTerminal) {
                 etaSec += deviationSec;
             }
         }
 
-        // Formatear el ETA
         const etaMinutes = Math.floor(etaSec / 60);
         let etaDisplay = "";
 
@@ -1255,6 +1510,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Resetear visualización de servicio finalizado por si acaso
         state.isServiceFinished = false;
         els.deviation.classList.remove('service-finished');
+    }
+
+    function stopNavigation() {
+        state.currentRoute = null;
+        state.activeItinerary = null;
+        state.activeTripIndex = -1;
+        state.isServiceFinished = false;
+
+        els.routeName.textContent = "SIN BANDERA";
+        els.deviation.textContent = "+00:00";
+        els.deviation.className = 'info-value deviation'; // Reset classes
+        els.nextStop.textContent = "---";
+        els.arrivalTime.textContent = "--:--";
+
+        // Limpiar mapa
+        if (state.mapVisible) {
+             MapLogic.initNavMap('nav-map');
+        }
+
+        // Reset info bar specific values that might be leftover
+        els.infoBanner.textContent = "---";
     }
 
     function finishService() {

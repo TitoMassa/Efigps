@@ -36,6 +36,15 @@ const MapLogic = {
     /** @type {Array<L.Marker>} Lista de marcadores para choferes simulados en el mapa de pasajeros */
     simulatedDriverMarkersPassenger: [],
 
+    /** @type {Array<L.Polyline>} Lista de polilíneas de trazado para choferes simulados */
+    simulatedDriverTracesNav: [],
+
+    /** @type {Array<L.Polyline>} Lista de polilíneas de trazado para choferes simulados en mapa de pasajeros */
+    simulatedDriverTracesPassenger: [],
+
+    /** @type {Array<L.CircleMarker>} Lista de marcadores de parada para los trazados de choferes simulados (ambos mapas) */
+    simulatedDriverStopMarkers: [],
+
     /**
      * Inicializa el mapa del editor en el elemento DOM especificado.
      * Configura la vista inicial y el manejo de eventos de clic.
@@ -70,7 +79,7 @@ const MapLogic = {
         this.navMap = L.map(elementId, {
             zoomControl: false, // UI Mínima
             attributionControl: false
-        }).setView([-34.6037, -58.3816], 15);
+        }).setView([-27.4692, -58.8302], 15);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.navMap);
     },
@@ -178,7 +187,7 @@ const MapLogic = {
         this.passengerMap = L.map(elementId, {
             zoomControl: true, // Permitir zoom al pasajero
             attributionControl: false
-        }).setView([-34.6037, -58.3816], 15);
+        }).setView([-27.4692, -58.8302], 15);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.passengerMap);
     },
@@ -218,7 +227,7 @@ const MapLogic = {
                  radius: 6
              }).addTo(this.passengerMap);
 
-             marker.bindPopup(`<strong>${stop.name}</strong>`);
+             marker.bindPopup(`<strong>${stop.name}</strong><br>Hora: ${stop.time || '--'}`);
              this.passengerMarkers.push(marker);
         });
 
@@ -352,11 +361,21 @@ const MapLogic = {
      * @param {Array<Object>} drivers - Lista de choferes simulados activos.
      */
     renderSimulatedDrivers: function(drivers) {
+        // Limpiar marcadores de parada simulados de ambos mapas
+        this.simulatedDriverStopMarkers.forEach(m => {
+            if (this.navMap && this.navMap.hasLayer(m)) this.navMap.removeLayer(m);
+            if (this.passengerMap && this.passengerMap.hasLayer(m)) this.passengerMap.removeLayer(m);
+        });
+        this.simulatedDriverStopMarkers = [];
+
         // --- Navegación Map ---
         if (this.navMap) {
-            // Eliminar marcadores anteriores
+            // Eliminar marcadores y trazos anteriores
             this.simulatedDriverMarkersNav.forEach(m => this.navMap.removeLayer(m));
             this.simulatedDriverMarkersNav = [];
+
+            this.simulatedDriverTracesNav.forEach(l => this.navMap.removeLayer(l));
+            this.simulatedDriverTracesNav = [];
 
             // Añadir nuevos marcadores
             drivers.forEach(d => {
@@ -370,10 +389,10 @@ const MapLogic = {
                         })
                     }).addTo(this.navMap);
 
-                    const sign = d.deviation <= 0 ? '+' : '-';
+                    const sign = d.deviation >= 0 ? '+' : '-';
                     const absDev = Math.abs(d.deviation);
                     const m = Math.floor(absDev / 60).toString().padStart(2, '0');
-                    const s = (absDev % 60).toString().padStart(2, '0');
+                    const s = Math.floor(absDev % 60).toString().padStart(2, '0');
                     const devStr = `${sign}${m}:${s}`;
 
                     marker.bindTooltip(`<b>${d.lineName}</b><br>${d.bannerName}<br>${devStr}`, {
@@ -381,15 +400,50 @@ const MapLogic = {
                         offset: [0, -10]
                     });
                     this.simulatedDriverMarkersNav.push(marker);
+
+                    // Dibujar trazo si está habilitado
+                    if (d.showTrace && d.trips && d.trips[d.currentTripIndex]) {
+                        const stops = d.trips[d.currentTripIndex].stops;
+                        const latlngs = [];
+                        stops.forEach(stop => {
+                            latlngs.push([stop.lat, stop.lng]);
+                            if (stop.pathNext && Array.isArray(stop.pathNext)) {
+                                stop.pathNext.forEach(pt => latlngs.push([pt.lat, pt.lng]));
+                            }
+                        });
+
+                        const polyline = L.polyline(latlngs, {
+                            color: '#ff9800',
+                            weight: 3,
+                            dashArray: '5, 5'
+                        }).addTo(this.navMap);
+
+                        this.simulatedDriverTracesNav.push(polyline);
+
+                        stops.forEach(stop => {
+                            const stopMarker = L.circleMarker([stop.lat, stop.lng], {
+                                color: '#ff9800',
+                                fillColor: '#333',
+                                fillOpacity: 1,
+                                weight: 2,
+                                radius: 5
+                            }).addTo(this.navMap);
+                            stopMarker.bindPopup(`<strong>${stop.name}</strong>`);
+                            this.simulatedDriverStopMarkers.push(stopMarker);
+                        });
+                    }
                 }
             });
         }
 
         // --- Passenger Map ---
         if (this.passengerMap) {
-            // Eliminar marcadores anteriores
+            // Eliminar marcadores y trazos anteriores
             this.simulatedDriverMarkersPassenger.forEach(m => this.passengerMap.removeLayer(m));
             this.simulatedDriverMarkersPassenger = [];
+
+            this.simulatedDriverTracesPassenger.forEach(l => this.passengerMap.removeLayer(l));
+            this.simulatedDriverTracesPassenger = [];
 
             // Añadir nuevos marcadores
             drivers.forEach(d => {
@@ -403,10 +457,10 @@ const MapLogic = {
                         })
                     }).addTo(this.passengerMap);
 
-                    const sign = d.deviation <= 0 ? '+' : '-';
+                    const sign = d.deviation >= 0 ? '+' : '-';
                     const absDev = Math.abs(d.deviation);
                     const m = Math.floor(absDev / 60).toString().padStart(2, '0');
-                    const s = (absDev % 60).toString().padStart(2, '0');
+                    const s = Math.floor(absDev % 60).toString().padStart(2, '0');
                     const devStr = `${sign}${m}:${s}`;
 
                     marker.bindTooltip(`<b>${d.lineName}</b><br>${d.bannerName}<br>${devStr}`, {
@@ -414,6 +468,38 @@ const MapLogic = {
                         offset: [0, -10]
                     });
                     this.simulatedDriverMarkersPassenger.push(marker);
+
+                    // Dibujar trazo si está habilitado
+                    if (d.showTrace && d.trips && d.trips[d.currentTripIndex]) {
+                        const stops = d.trips[d.currentTripIndex].stops;
+                        const latlngs = [];
+                        stops.forEach(stop => {
+                            latlngs.push([stop.lat, stop.lng]);
+                            if (stop.pathNext && Array.isArray(stop.pathNext)) {
+                                stop.pathNext.forEach(pt => latlngs.push([pt.lat, pt.lng]));
+                            }
+                        });
+
+                        const polyline = L.polyline(latlngs, {
+                            color: '#ff9800',
+                            weight: 3,
+                            dashArray: '5, 5'
+                        }).addTo(this.passengerMap);
+
+                        this.simulatedDriverTracesPassenger.push(polyline);
+
+                        stops.forEach(stop => {
+                            const stopMarker = L.circleMarker([stop.lat, stop.lng], {
+                                color: '#ff9800',
+                                fillColor: '#333',
+                                fillOpacity: 1,
+                                weight: 2,
+                                radius: 5
+                            }).addTo(this.passengerMap);
+                            stopMarker.bindPopup(`<strong>${stop.name}</strong>`);
+                            this.simulatedDriverStopMarkers.push(stopMarker);
+                        });
+                    }
                 }
             });
         }

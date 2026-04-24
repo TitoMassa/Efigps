@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
             els.passengerSelectStop.addEventListener('change', () => {
                 updatePassengerETAs();
                 if (passengerMapVisible) {
-                    updatePassengerMap();
+                    updatePassengerMapLocation();
                 }
             });
         }
@@ -516,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function simulateDriversTick(now) {
         const lines = JSON.parse(localStorage.getItem('gps_lines') || '[]');
         const savedRoutes = JSON.parse(localStorage.getItem('gps_routes') || '[]');
+        const persistentDrivers = JSON.parse(localStorage.getItem('gps_simulated_drivers') || '{}');
         const currentTimeSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
         // Determine the line currently driven by human (if any)
@@ -554,55 +555,252 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (now >= startDt && now <= endDt) {
                 if (!driver) {
-                    const firstNames = ["JUAN", "CARLOS", "MIGUEL", "JOSE", "LUIS", "DIEGO", "MARCOS", "PABLO", "GABRIEL", "ALEJANDRO"];
-                    const lastNames = ["GOMEZ", "RODRIGUEZ", "FERNANDEZ", "LOPEZ", "MARTINEZ", "PEREZ", "GARCIA", "SANCHEZ", "ROMERO", "SOSA"];
-                    const prefixes = ["10", "12", "14", "19", "98"];
+                    let pDriver = persistentDrivers[line.id];
 
-                    const fn1 = firstNames[Math.floor(Math.random() * firstNames.length)];
-                    const fn2 = firstNames[Math.floor(Math.random() * firstNames.length)];
-                    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+                    if (!pDriver) {
+                        const firstNames = ["JUAN", "CARLOS", "MIGUEL", "JOSE", "LUIS", "DIEGO", "MARCOS", "PABLO", "GABRIEL", "ALEJANDRO"];
+                        const lastNames = ["GOMEZ", "RODRIGUEZ", "FERNANDEZ", "LOPEZ", "MARTINEZ", "PEREZ", "GARCIA", "SANCHEZ", "ROMERO", "SOSA"];
+                        const prefixes = ["10", "12", "14", "19", "98"];
 
-                    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-                    const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-                    const legajo = prefix + suffix;
+                        const fn1 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                        const fn2 = firstNames[Math.floor(Math.random() * firstNames.length)];
+                        const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
 
-                    const initialDev = Math.floor(Math.random() * 601) - 300;
+                        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                        const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                        const legajo = prefix + suffix;
+
+                        // Inicializar el offset de tiempo. Positivo = Chofer adelantado físicamente, Negativo = Atrasado.
+                        // Inicializar el offset de tiempo. Solo negativo (atrasado) o 0 para que no salga adelantado de la punta de línea.
+                        // Entre 2 y 10 minutos tarde (120s a 600s), promediando 4 mins
+                        let randomDelay = Math.random();
+                        let delaySecs = 0;
+                        if (randomDelay < 0.6) {
+                            delaySecs = 240 + Math.floor(Math.random() * 120) - 60; // 3 a 5 mins
+                        } else {
+                            delaySecs = 120 + Math.floor(Math.random() * 480); // 2 a 10 mins
+                        }
+
+                        const initialTimeOffset = -delaySecs;
+
+                        pDriver = {
+                            name: `${ln} ${fn1} ${fn2} (${legajo})`,
+                            legajo: legajo,
+                            timeOffset: initialTimeOffset,
+                            showTrace: false,
+                            driveState: 'normal',
+                            stateTimeLeft: 60 // Segundos restantes en el estado actual
+                        };
+                        persistentDrivers[line.id] = pDriver;
+                        localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                    }
 
                     driver = {
                         lineId: line.id,
                         lineName: line.name,
-                        name: `${ln} ${fn1} ${fn2} (${legajo})`,
-                        legajo: legajo,
-                        deviation: initialDev,
+                        name: pDriver.name,
+                        legajo: pDriver.legajo,
+                        timeOffset: pDriver.timeOffset, // Controla físicamente qué tan rápido va en la simulación
+                        showTrace: pDriver.showTrace || false,
+                        driveState: pDriver.driveState || 'normal',
+                        stateTimeLeft: pDriver.stateTimeLeft || 60,
+                        deviation: 0, // Se calculará abajo basándose en la posición física real
                         lat: null,
                         lng: null,
                         currentTripIndex: 0,
                         trips: trips
                     };
                     state.simulatedDrivers.push(driver);
+                } else {
+                    // Update from persistence in case it changed (like showTrace)
+                    if (persistentDrivers[line.id]) {
+                        driver.showTrace = persistentDrivers[line.id].showTrace;
+                    }
                 }
 
-                if (Math.random() < 0.05) {
-                    driver.deviation += (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 5 + 1);
-                    driver.deviation = Math.max(-900, Math.min(900, driver.deviation));
+                // --- SISTEMA DE TENDENCIAS DE CONDUCCIÓN ---
+                // Se resta 1 segundo al estado actual en cada tick
+                driver.stateTimeLeft--;
+
+                // Si se acabó el tiempo del estado actual, cambiamos de estado
+                if (driver.stateTimeLeft <= 0) {
+                    const r = Math.random();
+                    // Probabilidades de cambiar de estado:
+                    // 60% Normal (mantiene velocidad)
+                    // 15% Tráfico (se atrasa mucho)
+                    // 15% Apurado (intenta recuperar tiempo atrasado)
+                    // 10% Fluido (pocos pasajeros, sin semáforos, se adelanta un poco)
+
+                    if (r < 0.60) {
+                        driver.driveState = 'normal';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 120) + 60; // 1 a 3 mins
+                    } else if (r < 0.75) {
+                        driver.driveState = 'traffic';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 180) + 60; // 1 a 4 mins
+                    } else if (r < 0.90) {
+                        driver.driveState = 'rushing';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 120) + 60; // 1 a 3 mins
+                    } else {
+                        driver.driveState = 'fast';
+                        driver.stateTimeLeft = Math.floor(Math.random() * 90) + 30; // 30s a 2 mins
+                    }
                 }
 
-                const simTimeSec = currentTimeSec + driver.deviation;
+                // Aplicar la tendencia de tiempo según el estado
+                // driver.timeOffset positivo significa adelantado, negativo significa atrasado
+                let speedMod = 0;
+                switch (driver.driveState) {
+                    case 'normal':
+                        // Oscilación muy leve, mantiene el ritmo programado (+- 0.5 sec)
+                        speedMod = (Math.random() > 0.5 ? 1 : -1) * (Math.random() > 0.5 ? 1 : 0);
+                        break;
+                    case 'traffic':
+                        // Pierde tiempo constantemente (pierde entre 0 y 2 segundos reales por cada segundo de simulación)
+                        speedMod = -Math.floor(Math.random() * 3);
+                        break;
+                    case 'rushing':
+                        // Gana tiempo para recuperar (gana entre 0 y 2 segundos)
+                        speedMod = Math.floor(Math.random() * 3);
+                        break;
+                    case 'fast':
+                        // Gana tiempo porque va fluido, incluso adelantándose (gana entre 1 y 3 segundos)
+                        speedMod = Math.floor(Math.random() * 3) + 1;
+                        break;
+                }
+
+                // Actualizar el offset (sin límite visual)
+                driver.timeOffset += speedMod;
+
+                // Guardar el estado
+                persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                persistentDrivers[line.id].driveState = driver.driveState;
+                persistentDrivers[line.id].stateTimeLeft = driver.stateTimeLeft;
+                localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+
+                // La posición física del chofer está dictada por su timeOffset
+                let simTimeSec = currentTimeSec + driver.timeOffset;
 
                 let currentTrip = null;
                 let tripIndex = -1;
 
+                // Primero determinamos el viaje actual basándonos en el tiempo real (sin offset)
+                // para saber en qué viaje debería estar. Si usamos simTimeSec podríamos adelantarlo al viaje siguiente.
                 for (let i = 0; i < trips.length; i++) {
                     const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
                     const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
-                    if (simTimeSec >= startSec && simTimeSec <= endSec) {
+                    if (currentTimeSec >= startSec && currentTimeSec <= endSec) {
                         currentTrip = trips[i];
                         tripIndex = i;
                         break;
                     }
                 }
 
+                // Lógica de Absorción Instantánea de Atraso en Punta de Línea:
+                // Si el chofer llega atrasado a la terminal, debe usar sus minutos de descanso
+                // programados para compensar ese atraso INSTANTÁNEAMENTE.
+                if (currentTrip && tripIndex > 0) {
+                     const prevTripEndSec = RouteLogic.timeToSeconds(trips[tripIndex-1].stops[trips[tripIndex-1].stops.length - 1].time);
+                     const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
+
+                     // Calculamos cuánto tiempo de descanso tenía programado
+                     let scheduledWait = startSec - prevTripEndSec;
+                     if (scheduledWait < 0) scheduledWait += 86400;
+
+                     // Si el tiempo físico (simTimeSec) acaba de alcanzar o superar el fin del viaje anterior,
+                     // significa que el chofer FÍSICAMENTE acaba de llegar a la terminal
+                     if (driver.timeOffset < 0 && simTimeSec >= prevTripEndSec && simTimeSec <= startSec) {
+                          // Absorbemos el atraso instantáneamente usando la espera programada
+                          const currentDelay = Math.abs(driver.timeOffset);
+                          const absorbable = Math.min(scheduledWait, currentDelay);
+
+                          if (absorbable > 0) {
+                              // El chofer reduce su atraso gracias al descanso
+                              driver.timeOffset += absorbable;
+                              simTimeSec = currentTimeSec + driver.timeOffset;
+
+                              persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                              localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                          }
+                     }
+                }
+
+                // Lógica de "quema" de tiempo en la punta de línea:
+                // Si el chofer es rápido y tiene timeOffset positivo (simTimeSec > currentTimeSec),
+                // significa que va "adelantado".
+                // Pero si la hora real (currentTimeSec) todavía no superó la hora de inicio de su viaje actual (startSec),
+                // entonces el chofer está en la punta de línea esperando.
+                // Mientras espera en la punta de línea, no puede "ganar" tiempo, sino que el tiempo lo "alcanza",
+                // por lo tanto, reducimos su timeOffset hasta que sea 0 o ligeramente negativo.
                 if (currentTrip) {
+                    const startSec = RouteLogic.timeToSeconds(currentTrip.stops[0].time);
+
+                    if (currentTimeSec <= startSec + 120) {
+                        if (driver.timeOffset > 0) {
+                            // Está adelantado pero aún no es hora de salir.
+                            // Si simTimeSec ya superó startSec, lo frenamos exactamente en startSec
+                            // para que la simulación lo deje esperando en la punta de línea.
+                            if (simTimeSec >= startSec) {
+                                driver.timeOffset = startSec - currentTimeSec;
+                                // Ojo: a medida que currentTimeSec aumenta, timeOffset bajará hasta 0.
+                                // Nunca sale adelantado, a lo sumo sale con timeOffset = 0 (exactamente a tiempo)
+                                // Pero para más realismo, al salir de punta de línea tras descansar,
+                                // sale atrasado entre 2 y 10 minutos (120 a 600 segundos), promediando 4 mins.
+                                if (driver.timeOffset <= 0) {
+                                     let startDelay = Math.random();
+                                     let startDelaySecs = 0;
+                                     if (startDelay < 0.6) {
+                                         startDelaySecs = 240 + Math.floor(Math.random() * 120) - 60; // 3 a 5 mins
+                                     } else {
+                                         startDelaySecs = 120 + Math.floor(Math.random() * 480); // 2 a 10 mins
+                                     }
+                                     driver.timeOffset = -startDelaySecs;
+                                }
+
+                                simTimeSec = currentTimeSec + driver.timeOffset;
+                                persistentDrivers[line.id].timeOffset = driver.timeOffset;
+                                localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+                            }
+                        }
+                    }
+                }
+
+                // Ahora determinamos la física del viaje
+                let physicsTrip = null;
+                let physicsTripIndex = -1;
+                let isWaiting = false;
+                let waitingTrip = null;
+
+                for (let i = 0; i < trips.length; i++) {
+                    const startSec = RouteLogic.timeToSeconds(trips[i].stops[0].time);
+                    const endSec = RouteLogic.timeToSeconds(trips[i].stops[trips[i].stops.length - 1].time);
+
+                    if (simTimeSec >= startSec && simTimeSec <= endSec) {
+                        physicsTrip = trips[i];
+                        physicsTripIndex = i;
+                        break;
+                    } else if (simTimeSec < startSec) {
+                        // El simulador está temporalmente "antes" del siguiente viaje, por lo tanto en espera.
+                        isWaiting = true;
+                        waitingTrip = trips[i];
+                        physicsTripIndex = i;
+                        break;
+                    }
+                }
+
+                // Si no encontramos viaje y simTimeSec superó todo el itinerario, se queda en el último
+                if (!physicsTrip && !isWaiting && trips.length > 0) {
+                     const lastTrip = trips[trips.length - 1];
+                     const endSec = RouteLogic.timeToSeconds(lastTrip.stops[lastTrip.stops.length - 1].time);
+                     if (simTimeSec > endSec) {
+                         isWaiting = true;
+                         waitingTrip = lastTrip;
+                         physicsTripIndex = trips.length - 1;
+                     }
+                }
+
+                if (physicsTrip) {
+                    currentTrip = physicsTrip;
+                    tripIndex = physicsTripIndex;
                     driver.currentTripIndex = tripIndex;
                     driver.bannerName = currentTrip.routeOriginalName || currentTrip.direction;
 
@@ -634,8 +832,45 @@ document.addEventListener('DOMContentLoaded', () => {
                             break;
                         }
                     }
+
+                    // Ahora que tenemos la posición física, calculamos la desviación estrictamente en base a ella
+                    if (driver.lat !== null && driver.lng !== null) {
+                        const devResult = RouteLogic.calculateDeviation(driver.lat, driver.lng, stops, currentTimeSec);
+                        if (devResult) {
+                            driver.deviation = devResult.deviationSec;
+                        } else {
+                            driver.deviation = 0;
+                        }
+                    }
+
+                } else if (isWaiting && waitingTrip) {
+                     // El chofer está descansando/esperando iniciar o continuar su circuito.
+                     driver.currentTripIndex = physicsTripIndex;
+                     driver.bannerName = waitingTrip.routeOriginalName || waitingTrip.direction;
+
+                     // Mantener el marcador clavado en la parada relevante (si va a arrancar, la primera; si ya terminó todo, la última).
+                     const startSec = RouteLogic.timeToSeconds(waitingTrip.stops[0].time);
+                     if (simTimeSec < startSec) {
+                         // Esperando para iniciar este viaje, lo ponemos en la primera parada
+                         driver.lat = waitingTrip.stops[0].lat;
+                         driver.lng = waitingTrip.stops[0].lng;
+                         // Su desviación mientras espera es literalmente su timeOffset actual comparado con el horario de inicio
+                         // Para simplificar la visualización de su estado general, podemos mostrar el timeOffset directamente
+                         // ya que eso refleja cuán adelantado/atrasado está sobre su "fantasma" programado globalmente.
+                         driver.deviation = driver.timeOffset;
+                     } else {
+                         // Superó todos los viajes, se clava en la última parada del último viaje
+                         const lastStop = waitingTrip.stops[waitingTrip.stops.length - 1];
+                         driver.lat = lastStop.lat;
+                         driver.lng = lastStop.lng;
+                         driver.deviation = driver.timeOffset;
+                     }
                 } else {
-                     driver.bannerName = "ESPERA";
+                     // Caso por defecto por si no entra en ningún viaje o espera válida
+                     driver.bannerName = "TERMINADO";
+                     driver.deviation = 0;
+                     driver.lat = null;
+                     driver.lng = null;
                 }
 
                 activeDrivers.push(driver);
@@ -658,22 +893,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = '';
         drivers.forEach(d => {
-            const sign = d.deviation <= 0 ? '+' : '-';
+            const sign = d.deviation >= 0 ? '+' : '-';
             const absDev = Math.abs(d.deviation);
             const m = Math.floor(absDev / 60).toString().padStart(2, '0');
-            const s = (absDev % 60).toString().padStart(2, '0');
+            const s = Math.floor(absDev % 60).toString().padStart(2, '0');
             const devStr = `${sign}${m}:${s}`;
 
+            const isChecked = d.showTrace ? 'checked' : '';
+
             html += `<div style="font-size:12px; font-family: 'Roboto Mono', monospace; background:#222; color:#fff; padding:5px; margin-bottom:5px; border-radius:3px;">
-                LINEA: ${d.lineName}<br>
-                BANDERA: ${d.bannerName}<br>
-                CHOFER: ${d.name}<br>
-                DESVIO: ${devStr}
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        LINEA: ${d.lineName}<br>
+                        BANDERA: ${d.bannerName}<br>
+                        CHOFER: ${d.name}<br>
+                        DESVIO: ${devStr}
+                    </div>
+                    <div style="text-align: center;">
+                        <input type="checkbox" id="trace-sim-${d.lineId}" onchange="window.toggleSimulatedTrace(${d.lineId}, this.checked)" ${isChecked}>
+                        <label for="trace-sim-${d.lineId}" style="display:block; font-size:10px; cursor:pointer;">Trazado</label>
+                    </div>
+                </div>
             </div>`;
         });
 
         els.simulatedDriversContainer.innerHTML = html;
     }
+
+    window.toggleSimulatedTrace = function(lineId, isChecked) {
+        const persistentDrivers = JSON.parse(localStorage.getItem('gps_simulated_drivers') || '{}');
+        if (persistentDrivers[lineId]) {
+            persistentDrivers[lineId].showTrace = isChecked;
+            localStorage.setItem('gps_simulated_drivers', JSON.stringify(persistentDrivers));
+
+            // Update live state immediately
+            const driver = state.simulatedDrivers.find(d => d.lineId === lineId);
+            if (driver) {
+                driver.showTrace = isChecked;
+                updateClock(); // Force map render
+            }
+        }
+    };
 
     function updateClock() {
         const now = new Date();
@@ -1202,6 +1462,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let stopsToUse = [];
         let isFutureTrip = false;
         let targetTimeSec = 0;
+        let targetStop = null;
+
+        // Variables para proyectar atrasos en viajes futuros
+        let currentTripIdx = -1;
+        let targetTripIdx = -1;
+        let allTrips = [];
 
         let currentLat = null;
         let currentLng = null;
@@ -1217,19 +1483,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             stopsToUse = state.currentRoute.stops;
 
+            if (state.activeItinerary) {
+                allTrips = state.activeItinerary;
+                currentTripIdx = state.activeTripIndex;
+            }
+
             if (routeVal !== "human_current" && state.activeItinerary) {
                 const val = routeVal.replace("human_", "");
                 const selectedTripIndex = parseInt(val, 10);
+                targetTripIdx = selectedTripIndex;
                 if (!isNaN(selectedTripIndex) && selectedTripIndex > state.activeTripIndex) {
                     isFutureTrip = true;
                 }
                 if (!isNaN(selectedTripIndex) && state.activeItinerary[selectedTripIndex]) {
                     stopsToUse = state.activeItinerary[selectedTripIndex].stops;
                 }
+            } else {
+                targetTripIdx = currentTripIdx;
             }
 
             const targetStopIndex = parseInt(stopIndexStr, 10);
-            const targetStop = stopsToUse[targetStopIndex];
+            targetStop = stopsToUse[targetStopIndex];
             targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
             const pos = getCurrentPosition();
@@ -1261,19 +1535,24 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
 
+            allTrips = driver.trips || [];
+            currentTripIdx = driver.currentTripIndex;
+
             const parts = routeVal.replace("sim_", "").split("_");
             const tripIndex = parseInt(parts[1]);
+            targetTripIdx = tripIndex;
+
             if (tripIndex > driver.currentTripIndex) {
                  isFutureTrip = true;
             }
 
             stopsToUse = driver.trips[tripIndex].stops;
             const targetStopIndex = parseInt(stopIndexStr, 10);
-            const targetStop = stopsToUse[targetStopIndex];
+            targetStop = stopsToUse[targetStopIndex];
             targetTimeSec = RouteLogic.timeToSeconds(targetStop.time);
 
             if (driver.lat === null || driver.lng === null) {
-                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Chofer en espera...</p>';
+                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Servicio no iniciado.</p>';
                 return;
             }
 
@@ -1286,30 +1565,72 @@ document.addEventListener('DOMContentLoaded', () => {
             if (devResult) {
                 deviationSec = devResult.deviationSec;
                 expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
-
-                const startStop = currentTripStops[0];
-                const dist = RouteLogic.getDistance(currentLat, currentLng, startStop.lat, startStop.lng) * 1000;
-                isOutsideTerminal = dist > 50;
             } else {
-                els.passengerEtaList.innerHTML = '<p style="text-align:center;">Calculando posición...</p>';
-                return;
+                // El cálculo de desviación puede fallar si está exactamente en la primera/última parada
+                // o fuera del radio mínimo de la ruta (Ej. esperando en la terminal clavado en el punto exacto).
+                // En este caso, confiamos en la desviación que ya calculó el simulador central.
+                deviationSec = driver.deviation;
+                // Asumimos que su tiempo esperado de ubicación es la hora de la primera parada menos su desviación.
+                expectedCurrentLocationTimeSec = RouteLogic.timeToSeconds(currentTripStops[0].time) - driver.deviation;
             }
+
+            const startStop = currentTripStops[0];
+            const dist = RouteLogic.getDistance(currentLat, currentLng, startStop.lat, startStop.lng) * 1000;
+            isOutsideTerminal = dist > 50;
         }
 
-        if (!isFutureTrip && expectedCurrentLocationTimeSec > targetTimeSec) {
-            els.passengerEtaList.innerHTML = '<div class="eta-card" style="background-color: #666;"><div class="eta-card-left"><div class="eta-line">Colectivo ya pasó esta parada</div></div></div>';
+        if (!isFutureTrip && expectedCurrentLocationTimeSec !== null && expectedCurrentLocationTimeSec > targetTimeSec) {
+            const lineName = els.passengerSelectLine.options[els.passengerSelectLine.selectedIndex].text;
+            els.passengerEtaList.innerHTML = `
+            <div class="eta-card" style="background-color: #666;">
+                <div class="eta-card-left">
+                    <div class="eta-line">${lineName}</div>
+                    <div class="eta-route">Colectivo ya pasó esta parada</div>
+                </div>
+            </div>`;
             return;
         }
 
-        let etaSec = targetTimeSec - expectedCurrentLocationTimeSec;
+        // Base ETA logic is purely the schedule time difference
+        // targetTimeSec = scheduled time of the selected stop
+        // currentSec = current real time
+        let etaSec = targetTimeSec - currentSec;
 
         if (etaSec < 0 && isFutureTrip) {
-            etaSec += 86400;
+            etaSec += 86400; // Next day
         }
 
-        if (deviationSec > 0) {
-            if (isFutureTrip || !isOutsideTerminal) {
-                etaSec += deviationSec;
+        // Apply deviation logic (deviationSec: negative = late, positive = early)
+        if (deviationSec < 0) {
+            // Late: add delay to ETA.
+            // Si es un viaje futuro, evaluamos si los tiempos de espera entre tramos amortiguan el atraso.
+            let projectedDelay = Math.abs(deviationSec);
+
+            if (isFutureTrip && currentTripIdx !== -1 && targetTripIdx !== -1 && allTrips.length > 0) {
+                // Iteramos sobre los tiempos de espera entre los tramos intermedios
+                for (let i = currentTripIdx; i < targetTripIdx; i++) {
+                    const tripEnd = RouteLogic.timeToSeconds(allTrips[i].stops[allTrips[i].stops.length - 1].time);
+                    const nextTripStart = RouteLogic.timeToSeconds(allTrips[i+1].stops[0].time);
+
+                    let waitBuffer = nextTripStart - tripEnd;
+                    if (waitBuffer < 0) waitBuffer += 86400; // Cruce de medianoche
+
+                    // El tiempo de espera absorbe el atraso
+                    projectedDelay -= waitBuffer;
+                    if (projectedDelay <= 0) {
+                        projectedDelay = 0;
+                        break;
+                    }
+                }
+            }
+
+            etaSec += projectedDelay;
+
+        } else if (deviationSec > 0) {
+            // Early: subtract time to show it's arriving earlier
+            // Except if the bus is waiting at the terminal or if it's a future trip
+            if (!isFutureTrip && isOutsideTerminal) {
+                etaSec -= deviationSec;
             }
         }
 

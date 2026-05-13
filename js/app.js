@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Stop Selection Mode
         manualMode: false,
         manualStopIndex: 0,
+        autoLastVisitedIndex: 0,
 
         // Editor
         editingRouteId: null,
@@ -404,10 +405,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
                 const pos = getCurrentPosition();
                 if (pos) {
-                    const res = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+                    const res = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec, state.autoLastVisitedIndex);
                     if (res) {
                         const idx = state.currentRoute.stops.findIndex(s => s.name === res.nextStop);
-                        if (idx !== -1) state.manualStopIndex = idx;
+                        if (idx !== -1) {
+                            state.manualStopIndex = idx;
+                            state.autoLastVisitedIndex = Math.max(0, idx - 1);
+                        }
                     }
                 }
             }
@@ -447,6 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     state.manualStopIndex = 0;
                 }
             }
+
+            // Sincronizar el índice de visita automática para que al volver a modo Auto no salte adelante
+            state.autoLastVisitedIndex = Math.max(0, state.manualStopIndex - 1);
+
             // Forzar actualización inmediata
             updateClock();
 
@@ -672,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else {
             // Auto
-            result = RouteLogic.calculateDeviation(lat, lng, state.currentRoute.stops, currentSec);
+            result = RouteLogic.calculateDeviation(lat, lng, state.currentRoute.stops, currentSec, state.autoLastVisitedIndex);
         }
 
         if (result) {
@@ -702,7 +710,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Sincronizar Índice Manual si en Modo Auto (para que al cambiar a manual estemos en el correcto)
             if (!state.manualMode) {
                  const idx = state.currentRoute.stops.findIndex(s => s.name === result.nextStop);
-                 if (idx !== -1) state.manualStopIndex = idx;
+                        if (idx !== -1) {
+                            state.manualStopIndex = idx;
+                            state.autoLastVisitedIndex = Math.max(0, idx - 1);
+                        }
             }
 
             // Actualizar Marcadores Mapa (Verde para siguiente parada)
@@ -1049,7 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentLat = pos.lat;
             currentLng = pos.lng;
 
-            const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec);
+            const devResult = RouteLogic.calculateDeviation(pos.lat, pos.lng, state.currentRoute.stops, currentSec, state.autoLastVisitedIndex);
             if (devResult) {
                 deviationSec = devResult.deviationSec;
                 expectedCurrentLocationTimeSec = devResult.expectedTimeSec;
@@ -1321,6 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function stopNavigation() {
         state.currentRoute = null;
         state.activeItinerary = null;
+        state.autoLastVisitedIndex = 0;
         state.activeTripIndex = -1;
         state.isServiceFinished = false;
 
@@ -1343,6 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentRoute = null;
         state.isServiceFinished = true;
         state.activeItinerary = null;
+        state.autoLastVisitedIndex = 0;
         state.activeTripIndex = -1;
 
         els.routeName.textContent = "SERVICIO FINALIZADO";
@@ -1950,6 +1963,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function selectRoute(route) {
         state.currentRoute = route;
+        state.autoLastVisitedIndex = 0;
         els.routeName.textContent = route.name;
 
         // Reset Nav Map
@@ -2041,9 +2055,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Usar modo terminal: Texto simple en blanco, sin colores de semáforo
             els.deviation.classList.add('terminal-mode');
-            els.deviation.classList.remove('early', 'late');
+            els.deviation.classList.remove('early', 'late', 'deviation-magenta', 'deviation-white');
+            els.deviation.classList.add('deviation-white');
 
             // Formato de una sola línea
+            if (val.startsWith('Punta de Línea: ')) val = val.replace('Punta de Línea: ', '');
             els.deviation.textContent = `Punta de Línea: ${val}`;
         } else {
             // Fuera del radio

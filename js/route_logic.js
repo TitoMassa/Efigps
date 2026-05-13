@@ -160,14 +160,17 @@ const RouteLogic = {
      * @param {number} currentTimeSec - Tiempo actual en segundos desde medianoche.
      * @returns {Object|null} Objeto con detalles de la desviación { deviationSec, deviationStr, nextStop, expectedTimeSec }, o null si no se encuentra coincidencia.
      */
-    calculateDeviation: function(currentLat, currentLng, routeStops, currentTimeSec) {
+    calculateDeviation: function(currentLat, currentLng, routeStops, currentTimeSec, lastVisitedIndex = 0) {
         // 1. Encontrar el segmento activo.
-        // Buscamos todos los segmentos detallados para encontrar el punto más cercano en la red de polilíneas.
+        // Buscamos proyecciones solo desde el lastVisitedIndex en adelante para evitar retrocesos accidentales.
 
         let bestGlobalMatch = null;
         let minGlobalDist = Infinity;
 
-        for (let i = 0; i < routeStops.length - 1; i++) {
+        // Asegurar que el índice inicial es válido
+        const startIndex = Math.max(0, Math.min(lastVisitedIndex, routeStops.length - 2));
+
+        for (let i = startIndex; i < routeStops.length - 1; i++) {
             const stopA = routeStops[i];
             const stopB = routeStops[i+1];
 
